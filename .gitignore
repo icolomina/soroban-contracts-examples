@@ -14,6 +14,10 @@
 /house_purchase/HousePurchase/test_snapshots/
 /house_purchase/HousePurchase/Cargo.lock
 
+/investment/target/
+/investment/test_snapshots/
+/investment/Cargo.lock
+
 /paid_account/target/
 /paid_account/test_snapshots/
 /paid_account/Cargo.lock
