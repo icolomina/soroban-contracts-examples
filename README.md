@@ -28,11 +28,11 @@ This Investment Contract provides a robust framework for managing investments on
 - **min_per_investment**: The minimum amount per investment.
 
 After the contract is initialized, users can send their their transfers and become investors, This is done calling the "invest" function. For each transfer, the contract reserves a 5% as a reserve fund and a 2% as a comission.
-The "claim" function is used to send the payments to the investors after the "claim_block_days" has passed. This function checks if its been a month since the last address payment and, if so, sends the payment and updates the last payment timestamp.
-The "project_withdrawn" function allows the project address to withdran funds. It requires both the project address and the admin address sign.
-The "check_project_address_balance" ensures that the contract has sufficient funds to cover payments for the next 7 days.
-The "stop_investments" flags the contract so that no more investors transfers will be accepted.
-The "get_contract_balance" function retunrs the current balance of the contract.
+- The "claim" function is used to send the payments to the investors after the "claim_block_days" has passed. This function checks if its been a month since the last address payment and, if so, sends the payment and updates the last payment timestamp.
+- The "project_withdrawn" function allows the project address to withdran funds. It requires both the project address and the admin address sign.
+- The "check_project_address_balance" ensures that the contract has sufficient funds to cover payments for the next 7 days.
+- The "stop_investments" flags the contract so that no more investors transfers will be accepted.
+- The "get_contract_balance" function retunrs the current balance of the contract.
 
 ### Simple deposit
 A contract to make a simple deposit to the contract address.
