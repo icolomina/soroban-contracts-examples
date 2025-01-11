@@ -1,7 +1,6 @@
 #![cfg(test)]
 
-use crate::contract::{InvestmentContract, InvestmentContractClient};
-use crate::data::{ContractBalances, Investment, InvestmentStatus};
+use crate::{balance::ContractBalances, contract::{InvestmentContract, InvestmentContractClient}, investment::{Investment, InvestmentStatus}};
 use soroban_sdk::{Env, testutils::{Address as _, Ledger}, Address, testutils::Logs, token};
 use token::Client as TokenClient;
 use token::StellarAssetClient as TokenAdminClient;
@@ -17,7 +16,6 @@ fn create_token_contract<'a>(e: &Env, admin: &Address) -> (TokenClient<'a>, Toke
 }
 
 struct TestData<'a> {
-    admin: Address,
     user: Address,
     project_address: Address,
     client:  InvestmentContractClient<'a>,
@@ -25,19 +23,32 @@ struct TestData<'a> {
     token_admin: TokenAdminClient<'a>
 }
 
-fn init_test_data(e: &Env) -> TestData {
+fn create_investment_contract(e: &Env, i_rate: u32, claim_block_days: u64, goal: i128, return_type: u32, return_months: u32, min_per_investment: i128) -> TestData {
     e.mock_all_auths();
-
-    let contract_id = e.register( InvestmentContract, {});
-    let client = InvestmentContractClient::new(&e, &contract_id);
-
     let admin = Address::generate(&e);
     let user = Address::generate(&e);
     let project_address = Address::generate(&e);
     let (token, token_admin) = create_token_contract(&e, &admin);
 
+    let client = InvestmentContractClient::new(
+        e, 
+        &e.register( 
+            InvestmentContract {},
+            (
+                admin.clone(), 
+                project_address.clone(), 
+                token.address.clone(), 
+                i_rate, 
+                claim_block_days, 
+                goal, 
+                return_type, 
+                return_months, 
+                min_per_investment
+            )
+        )
+    );
+
     TestData {
-        admin,
         user,
         project_address,
         client,
@@ -47,73 +58,9 @@ fn init_test_data(e: &Env) -> TestData {
 }
 
 #[test]
-fn test_init() {
-    let e = Env::default();
-    let test_data = init_test_data(&e);
-    assert_eq!(test_data.client.init(
-        &test_data.admin, 
-        &test_data.project_address,
-        &test_data.token.address, 
-        &500_u32, 
-        &30_u64,
-        &1000_i128,
-        &1_u32,
-        &24_u32,
-        &100_i128), 
-    true);
-}
-
-#[test]
-#[should_panic(expected = "HostError: Error(Contract, #13)")]
-fn test_init_fail_invalid_return_type() {
-    let e = Env::default();
-    let test_data = init_test_data(&e);
-    test_data.client.init(
-        &test_data.admin, 
-        &test_data.project_address,
-        &test_data.token.address, 
-        &500_u32, 
-        &30_u64,
-        &1000_i128,
-        &4_u32,
-        &4_u32,
-        &100000_i128
-    );
-}
-
-#[test]
-#[should_panic(expected = "HostError: Error(Contract, #7)")]
-fn test_init_fail_i_rate_is_0() {
-    let e = Env::default();
-    let test_data = init_test_data(&e);
-    test_data.client.init(
-        &test_data.admin, 
-        &test_data.project_address,
-        &test_data.token.address, 
-        &0_u32, 
-        &30_u64,
-        &1000_i128,
-        &4_u32,
-        &4_u32,
-        &100000_i128
-    );
-}
-
-#[test]
 fn test_investment() {
     let e = Env::default();
-    let test_data = init_test_data(&e);
-    test_data.client.init(
-        &test_data.admin, 
-        &test_data.project_address,
-        &test_data.token.address, 
-        &500_u32, 
-        &7_u64,
-        &0_i128,
-        &1_u32,
-        &4_u32,
-        &100000_i128
-    );
+    let test_data = create_investment_contract(&e, 500_u32, 7_u64, 0_i128, 1_u32, 4_u32, 100000_i128);
 
     test_data.token_admin.mint(&test_data.user, &1000000);
     test_data.token_admin.mint(&test_data.client.address, &3000);
@@ -161,18 +108,7 @@ fn test_investment() {
 #[should_panic(expected = "HostError: Error(Contract, #20)")]
 fn test_check_contract_balance_fails() {
     let e = Env::default();
-    let test_data = init_test_data(&e);
-    test_data.client.init(
-        &test_data.admin, 
-        &test_data.project_address,
-        &test_data.token.address, 
-        &500_u32, 
-        &7_u64,
-        &1000000_i128,
-        &1_u32,
-        &4_u32,
-        &100000_i128
-    );
+    let test_data = create_investment_contract(&e, 500_u32, 7_u64, 1000000_i128, 1_u32, 4_u32, 100000_i128);
 
     let another_user: Address = Address::generate(&e);
     test_data.token_admin.mint(&test_data.user, &1000000);
@@ -195,18 +131,7 @@ fn test_check_contract_balance_fails() {
 #[test]
 fn test_check_contract_balance() {
     let e = Env::default();
-    let test_data = init_test_data(&e);
-    test_data.client.init(
-        &test_data.admin, 
-        &test_data.project_address,
-        &test_data.token.address, 
-        &500_u32, 
-        &7_u64,
-        &1000000_i128,
-        &1_u32,
-        &4_u32,
-        &100000_i128
-    );
+    let test_data = create_investment_contract(&e, 500_u32, 7_u64,1000000_i128, 1_u32, 4_u32, 100000_i128);
 
     let another_user: Address = Address::generate(&e);
     test_data.token_admin.mint(&test_data.user, &1000000);

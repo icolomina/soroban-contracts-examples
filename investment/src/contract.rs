@@ -1,9 +1,25 @@
 use soroban_sdk::token::TokenClient;
 use soroban_sdk::{contract, contractimpl, log, token, Address, Env, Map, String};
+
+use crate::balance::{recalculate_contract_balances_from_amount, Amount, CalculateAmounts, ContractBalances};
+use crate::claim::{calculate_next_claim, Claim};
 use crate::data::{
-    Amount, CalculateAmounts, Claim, ContractBalances, ContractData, DataKey, Error, FromNumber, Investment, InvestmentReturnType, InvestmentStatus, MultisigRequest, MultisigStatus, State, INSTANCE_BUMP_AMOUNT, INSTANCE_LIFETIME_THRESHOLD
+    ContractData, DataKey, Error, State, FromNumber
 };
-use crate::investment::{build_investment, process_investment_claim};
+use crate::investment::{build_investment, process_investment_claim, Investment, InvestmentReturnType, InvestmentStatus};
+use crate::multisig::{MultisigRequest, MultisigStatus};
+use crate::storage::{
+    get_balances_or_new, 
+    get_claims_map_or_new, 
+    get_contract_data, 
+    get_investment, 
+    get_multisig_or_new, 
+    has_investment, 
+    set_investment, 
+    update_claims_map, 
+    update_contract_balances, 
+    update_contract_data
+};
 
 macro_rules! require {
     ($cond:expr, $err:expr) => {
@@ -13,85 +29,31 @@ macro_rules! require {
     };
 }
 
-fn check_contract_initialized(e: &Env) -> bool {
-    let contract_data_key = DataKey::ContractData;
-    if e.storage().instance().has(&contract_data_key) {
-        return true;
-    }
-
-    false
-}
-
-fn get_contract_data(e: &Env) -> ContractData {
-    let contract_data_key = DataKey::ContractData;
-    let contract_data = e.storage().instance().get(&contract_data_key).unwrap();
-    contract_data
-}
-
-fn update_contract_data(e: &Env, contract_data: &ContractData) {
-    let contract_data_key = DataKey::ContractData;
-    e.storage().instance().set(&contract_data_key, contract_data);
-    e.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
-}
-
 fn get_token(env: &Env) -> TokenClient {
     let contract_data = get_contract_data(&env);
     let tk = token::Client::new(&env, &contract_data.token);
     tk
 }
 
-fn has_investment(e: &Env, addr: Address) -> bool {
-    let investment_key = DataKey::Investment(addr);
-    if e.storage().persistent().has(&investment_key) {
-        return true;
-    }
-
-    return false;
-}
-
-fn get_investment(e: &Env, addr: Address) -> Investment {
-    let investment_key = DataKey::Investment(addr);
-    let investment_data = e.storage().persistent().get(&investment_key).unwrap();
-    investment_data
-}
-
 fn update_investment(e: &Env, addr: Address, investment: &Investment) {
-    let investment_key = DataKey::Investment(addr.clone());
-    let claims_map_key = DataKey::ClaimsMap;
-    e.storage().persistent().set(&investment_key, investment);
-    let seconds_in_a_month = 30 * 24 * 60 * 60;
-    let mut claims_map: Map<Address, Claim> = e.storage().instance().get(&claims_map_key).unwrap_or(Map::<Address, Claim>::new(&e));
-    let next_claim = Claim {
-        next_transfer_ts: match investment.last_transfer_ts {
-            lts if lts > 0  => lts + seconds_in_a_month,
-            _ => e.ledger().timestamp() + seconds_in_a_month
-        },
-        amount_to_pay: investment.regular_payment
-    };
+    set_investment(e, addr.clone(), investment);
+    let mut claims_map: Map<Address, Claim> = get_claims_map_or_new(e);
 
-    claims_map.set(addr.clone(), next_claim);
-    e.storage().instance().set(&claims_map_key, &claims_map);
-
+    claims_map.set(addr.clone(), calculate_next_claim(e, investment));
+    update_claims_map(e, claims_map);
 }
 
-fn decrement_project_balance(env: &Env, amount: i128) {
-    let mut contract_balances = read_balances(&env);
+fn decrement_project_balance(e: &Env, amount: i128) {
+    let mut contract_balances = get_balances_or_new(e);
     contract_balances.project -= amount;
-    env.storage().instance().set(&DataKey::ContractBalances, &contract_balances);
+    update_contract_balances(e, &contract_balances);
 }
 
-fn write_balances(env: &Env, amounts: &Amount) {
-    let mut contract_balances = read_balances(env);
-    contract_balances.comission += amounts.amount_to_commission;
-    contract_balances.reserve_fund += amounts.amount_to_reserve_fund;
-    contract_balances.project += amounts.amount_to_invest;
+fn write_balances(e: &Env, amounts: &Amount) {
+    let mut contract_balances = get_balances_or_new(e);
+    recalculate_contract_balances_from_amount(&mut contract_balances, amounts);
 
-    env.storage().instance().set(&DataKey::ContractBalances, &contract_balances);
-}
-
-fn read_balances(env: &Env) -> ContractBalances {
-    let contract_balances = env.storage().instance().get(&DataKey::ContractBalances).unwrap_or(ContractBalances::new());
-    contract_balances
+    update_contract_balances(e, &contract_balances);
 }
 
 
@@ -101,10 +63,11 @@ pub struct InvestmentContract;
 #[contractimpl]
 impl InvestmentContract {
 
-    pub fn init(env: Env, admin_addr: Address, project_address: Address, token_addr: Address, i_rate: u32, claim_block_days: u64, goal: i128, return_type: u32, return_months: u32, min_per_investment: i128) -> Result<bool, Error>{
+    pub fn __constructor(env: Env, admin_addr: Address, project_address: Address, token_addr: Address, i_rate: u32, claim_block_days: u64, goal: i128, return_type: u32, return_months: u32, min_per_investment: i128) {
 
-        require!(!check_contract_initialized(&env), Error::ContractAlreadyInitialized);
-        require!(i_rate > 0, Error::RateMustBeGreaterThan0);
+        if i_rate == 0 {
+            panic!("Interest rate cannot be 0");
+        }
 
         admin_addr.require_auth();
         if let Some(ret_type) = InvestmentReturnType::from_number(return_type) {
@@ -123,21 +86,24 @@ impl InvestmentContract {
 
             update_contract_data(&env, &contract_data);
         } else {
-            return Err(Error::UnsupportedReturnType);
+            //return Err(Error::UnsupportedReturnType);
+            panic!("unsupported return type");
         }
 
-        Ok(true)
     }
 
     pub fn claim(env: Env, addr: Address) -> Result<Investment, Error>
     {
-        require!(check_contract_initialized(&env), Error::ContractAlreadyInitialized);
         require!(has_investment(&env, addr.clone()), Error::ContractAlreadyInitialized);
 
         let contract_data: ContractData = get_contract_data(&env);
         contract_data.admin.require_auth();
 
-        let mut investment: Investment = get_investment(&env, addr.clone());
+        let mut investment: Investment;
+        match get_investment(&env, addr.clone()) {
+            Some(inv) => investment = inv,
+            None => return Err(Error::AddressHasNotInvested)
+        } 
         require!(env.ledger().timestamp() >= investment.claimable_ts, Error::AddressInvestmentIsNotClaimableYet);
         require!(investment.status != InvestmentStatus::Finished, Error::AddressInvestmentIsFinished);
 
@@ -158,7 +124,6 @@ impl InvestmentContract {
 
     pub fn invest(env: Env, addr: Address, amount: i128) -> Result<Investment, Error> {
 
-        require!(check_contract_initialized(&env), Error::ContractAlreadyInitialized);
         require!(amount > 0, Error::AmountLessOrEqualThan0);
 
         let contract_data: ContractData = get_contract_data(&env);
@@ -184,19 +149,15 @@ impl InvestmentContract {
 
     pub fn get_contract_balance(env: Env) -> Result<ContractBalances, Error> {
 
-        require!(check_contract_initialized(&env), Error::ContractNotInitialized);
-
         let contract_data: ContractData = get_contract_data(&env);
         contract_data.admin.require_auth();
 
-        let contract_balances: ContractBalances = read_balances(&env);
+        let contract_balances: ContractBalances = get_balances_or_new(&env);
 
         Ok(contract_balances)
     }
 
     pub fn stop_investments(env: Env) -> Result<bool, Error> {
-
-        require!(check_contract_initialized(&env), Error::ContractNotInitialized);
 
         let mut contract_data: ContractData = get_contract_data(&env);
         contract_data.admin.require_auth();
@@ -211,21 +172,13 @@ impl InvestmentContract {
         let valid_ts = env.ledger().timestamp() + 86400;
 
         let tk = get_token(&env);
-        let contract_balances: ContractBalances = read_balances(&env);
+        let contract_balances: ContractBalances = get_balances_or_new(&env);
 
         require!(contract_balances.project > amount, Error::ContractInsufficientBalance);
 
         let contract_data: ContractData = get_contract_data(&env);
-        let mut multisig: MultisigRequest = env.storage().temporary().get(&DataKey::MultisigRequest).unwrap_or(
-            MultisigRequest::new(
-                &env, 
-                &contract_data, 
-                String::from_str(&env, "project_withdrawn"), 
-                2_u32, 
-                amount,
-                valid_ts
-            )
-        );
+        let multisig_claim : String = String::from_str(&env, "project_withdrawn");
+        let mut multisig: MultisigRequest = get_multisig_or_new(&env, &contract_data, multisig_claim, 2_u32, amount, valid_ts);
 
         require!(multisig.is_valid_signature(addr.clone()), Error::AddressAlreadyDeposited);
         if multisig.is_completed() {
@@ -244,12 +197,11 @@ impl InvestmentContract {
 
     pub fn check_project_address_balance(env: Env) -> Result<i128, Error> {
 
-        require!(check_contract_initialized(&env), Error::ContractNotInitialized);
         let contract_data: ContractData = get_contract_data(&env);
         contract_data.admin.require_auth();
 
-        let claims_map: Map<Address, Claim> = env.storage().instance().get(&DataKey::ClaimsMap).unwrap_or(Map::<Address, Claim>::new(&env));
-        let project_balances: ContractBalances = read_balances(&env);
+        let claims_map: Map<Address, Claim> = get_claims_map_or_new(&env);
+        let project_balances: ContractBalances = get_balances_or_new(&env);
         let mut min_funds: i128 = 0;
 
         let tk = get_token(&env);

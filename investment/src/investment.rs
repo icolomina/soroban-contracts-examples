@@ -1,6 +1,52 @@
 
-use soroban_sdk::{log, token::TokenClient, Address, Env};
-use crate::data::{Amount, CalculateAmounts, ContractData, Investment, InvestmentReturnType, InvestmentStatus};
+use soroban_sdk::{contracttype, log, token::TokenClient, Address, Env};
+use crate::{balance::{Amount, CalculateAmounts}, data::{ContractData, FromNumber}};
+
+#[contracttype]
+pub struct Investment {
+    pub deposited: i128,
+    pub accumulated_interests: i128,
+    pub total: i128,
+    pub claimable_ts: u64,
+    pub last_transfer_ts: u64,
+    pub status: InvestmentStatus,
+    pub regular_payment: i128,
+    pub paid: i128,
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+#[repr(u32)]
+#[contracttype]
+pub enum InvestmentStatus {
+    Blocked = 1,
+    Claimable = 2,
+    WaitingForPayment = 3,
+    CashFlowing = 4,
+    Finished = 5,
+}
+
+#[derive(Copy, Clone, PartialEq)]
+#[repr(u32)]
+#[contracttype]
+pub enum InvestmentReturnType {
+    ReverseLoan = 1,
+    Coupon = 2,
+    OneTimePayment = 3,
+}
+
+impl FromNumber for InvestmentReturnType {
+    fn from_number<N>(value: N) -> Option<InvestmentReturnType> where N: Into<u32> {
+
+        let value: u32 = value.into();
+        match value {
+            1 => Some(InvestmentReturnType::ReverseLoan),
+            2 => Some(InvestmentReturnType::Coupon),
+            3 => Some(InvestmentReturnType::OneTimePayment),
+            _ => None,
+        }
+    }
+}
+
 
 pub fn build_investment(env: &Env, cd: &ContractData, amount: &i128 ) -> Investment{
     let amounts: Amount = Amount::from_investment(amount);
