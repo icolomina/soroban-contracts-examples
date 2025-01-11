@@ -1,12 +1,12 @@
 use crate::{balance::ContractBalances, claim::Claim, data::{ContractData, DataKey}, investment::Investment, multisig::MultisigRequest};
 use soroban_sdk::{Address, Env, Map, String};
 
-pub(crate) const DAY_IN_LEDGERS: u32 = 17280;
-pub(crate) const INSTANCE_BUMP_AMOUNT: u32 = 7 * DAY_IN_LEDGERS;
-pub(crate) const INSTANCE_LIFETIME_THRESHOLD: u32 = INSTANCE_BUMP_AMOUNT - DAY_IN_LEDGERS;
+pub(self) const DAY_IN_LEDGERS: u32 = 17280;
+pub(self) const INSTANCE_BUMP_AMOUNT: u32 = 7 * DAY_IN_LEDGERS;
+pub(self) const INSTANCE_LIFETIME_THRESHOLD: u32 = INSTANCE_BUMP_AMOUNT - DAY_IN_LEDGERS;
 
-pub(crate) const PERSISTENT_BUMP_AMOUNT: u32 = 30 * DAY_IN_LEDGERS;
-pub(crate) const PERSISTENT_LIFETIME_THRESHOLD: u32 = PERSISTENT_BUMP_AMOUNT - DAY_IN_LEDGERS;
+pub(self) const PERSISTENT_BUMP_AMOUNT: u32 = 30 * DAY_IN_LEDGERS;
+pub(self) const PERSISTENT_LIFETIME_THRESHOLD: u32 = PERSISTENT_BUMP_AMOUNT - DAY_IN_LEDGERS;
 
 
 pub fn get_contract_data(e: &Env) -> ContractData {
