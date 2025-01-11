@@ -12,7 +12,9 @@ This contract also manages a ballot process but, in this case, the user must hol
 This contract manages a house purchase between buyer and seller. It uses another contract which acts as an asset and represents the underlying asset, that is, the house. After the buyer send the payment to the current asset owner, it changes the ownership of the asset to the buyer.
 
 ### Investment
-This Investment Contract provides a robust framework for managing investments on the Soroban platform. It includes features for investment management, return claims, and multisig withdrawals, ensuring secure and efficient handling of funds. This contract is designed to be installed for every single project so that each address manages a single project funds. After the contract is installed, the "init" function must be called. This function loads all the required data the contract needs to work:
+This Investment Contract provides a robust framework for managing investments on the Soroban platform. It includes features for investment management, return claims, and multisig withdrawals, ensuring secure and efficient handling of funds. This contract is designed to be installed for every single project so that each address manages a single project funds. This contract is adapted to the last changes introduced by protocol 22. Instead of using an "init" to configure the contract, it uses the new introduced "__constructor" function. This functión is executed when the contract is deployed (same as Solidity) so that, after deployed, the contract is ready to start working.
+
+Below you can find the parameters that the constructor must receive:
 
 - **admin_addr**: The contract administrator address. This address which administrates the contract
 - **project_address**: The project address. This is the address to which the funds raised will be sent.
