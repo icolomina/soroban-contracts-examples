@@ -9,16 +9,7 @@ use crate::data::{
 use crate::investment::{build_investment, process_investment_claim, Investment, InvestmentReturnType, InvestmentStatus};
 use crate::multisig::{MultisigRequest, MultisigStatus};
 use crate::storage::{
-    get_balances_or_new, 
-    get_claims_map_or_new, 
-    get_contract_data, 
-    get_investment, 
-    get_multisig_or_new, 
-    has_investment, 
-    set_investment, 
-    update_claims_map, 
-    update_contract_balances, 
-    update_contract_data
+    get_balances_or_new, get_claims_map_or_new, get_contract_data, get_investment, get_multisig_or_new, has_investment, set_investment, set_multisig, update_claims_map, update_contract_balances, update_contract_data
 };
 
 macro_rules! require {
@@ -136,7 +127,7 @@ impl InvestmentContract {
         require!(contract_data.goal == 0 || tk.balance(&env.current_contract_address()) < contract_data.goal, Error::ContractHasReachedInvestmentGoal);
         require!(tk.balance(&addr) >= amount, Error::AddressInsufficientBalance);
 
-        let amounts: Amount = Amount::from_investment(&amount);
+        let amounts: Amount = Amount::from_investment(&amount, &contract_data.interest_rate);
         tk.transfer(&addr, &env.current_contract_address(), &amount);
 
         write_balances(&env, &amounts);
@@ -180,17 +171,20 @@ impl InvestmentContract {
         let multisig_claim : String = String::from_str(&env, "project_withdrawn");
         let mut multisig: MultisigRequest = get_multisig_or_new(&env, &contract_data, multisig_claim, 2_u32, amount, valid_ts);
 
-        require!(multisig.is_valid_signature(addr.clone()), Error::AddressAlreadyDeposited);
+        require!(multisig.is_valid_signature(addr.clone()), Error::WithdrawalUnexpectedSignature);
+        require!(!multisig.is_expired(env.ledger().timestamp()), Error::WithdrawalExpiredSignature);
+        require!(amount == multisig.amount, Error::WithdrawalInvalidAmount);
+
+        addr.require_auth();
+        multisig.add_sig(addr);
+
         if multisig.is_completed() {
             env.storage().temporary().remove(&DataKey::MultisigRequest);
-            tk.transfer(&env.current_contract_address(), &contract_data.project_address, &amount); 
+            tk.transfer(&env.current_contract_address(), &contract_data.project_address, &multisig.amount); 
             return Ok(MultisigStatus::Completed)
         }
 
-        addr.require_auth();
-
-        multisig.add_sig(addr);
-        env.storage().temporary().set(&DataKey::MultisigRequest, &multisig);
+        set_multisig(&env, &multisig);
         Ok(MultisigStatus::WaitingForSignatures)
 
     }

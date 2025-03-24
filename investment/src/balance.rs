@@ -35,13 +35,15 @@ pub struct Amount {
 }
 
 pub trait CalculateAmounts {
-    fn from_investment(amount: &i128) -> Amount;
+    fn from_investment(amount: &i128, i_rate: &u32) -> Amount;
 }
 
 impl CalculateAmounts for Amount {
-    fn from_investment(amount: &i128) -> Amount {
+    fn from_investment(amount: &i128, i_rate: &u32) -> Amount {
 
-        let amount_to_commission = amount * 2 / 100;
+        let commision_rate = i_rate / 10;
+
+        let amount_to_commission = amount * (commision_rate as i128) / 100 / 100;
         let amount_to_reserve_fund = amount * 5 / 100;
         let amount_to_invest = amount - amount_to_commission - amount_to_reserve_fund; 
 

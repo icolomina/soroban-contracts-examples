@@ -45,7 +45,10 @@ pub enum Error {
     AddressInvestmentNextTransferNotClaimableYet = 17,
     AddressAlreadyInvested = 18,
     ContractHasReachedInvestmentGoal = 19,
-    ProjectAddressInsufficientBalance = 20
+    ProjectAddressInsufficientBalance = 20,
+    WithdrawalUnexpectedSignature = 21,
+    WithdrawalExpiredSignature = 22,
+    WithdrawalInvalidAmount = 23
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]

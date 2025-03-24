@@ -49,9 +49,9 @@ impl FromNumber for InvestmentReturnType {
 
 
 pub fn build_investment(env: &Env, cd: &ContractData, amount: &i128 ) -> Investment{
-    let amounts: Amount = Amount::from_investment(amount);
+    let amounts: Amount = Amount::from_investment(amount, &cd.interest_rate);
     let real_amount = amounts.amount_to_invest + amounts.amount_to_reserve_fund;
-    let current_interest = (real_amount * (cd.interest_rate as i128 / 100)) / 100;
+    let current_interest = (real_amount * cd.interest_rate as i128) / 100 / 100;
     let status: InvestmentStatus = match cd.claim_block_days {
         cbd if cbd > 0 => InvestmentStatus::Blocked,
         _ => InvestmentStatus::Claimable

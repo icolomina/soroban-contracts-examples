@@ -30,6 +30,10 @@ impl MultisigRequest {
         return self.signed_addrs.len() == self.expected_addrs.len();
     }
 
+    pub fn is_expired(&self, current_ts: u64) -> bool {
+        return current_ts > self.valid_ts
+    }
+
     pub fn new(e: &Env, contract_data: &ContractData, function: String, successful_signatures: u32, amount: i128, valid_ts: u64) -> Self {
 
         let expected_addrs: Vec<Address> = vec![
@@ -50,6 +54,8 @@ impl MultisigRequest {
 }
 
 #[contracttype]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
 pub enum MultisigStatus {
     WaitingForSignatures = 1,
     Completed = 2,

@@ -89,15 +89,25 @@ pub fn get_multisig_or_new(e: &Env, contract_data: &ContractData, multisig_claim
     let multisig_request = e.storage().temporary().get(&DataKey::MultisigRequest);
     match multisig_request {
         Some(x) => x,
-        None => MultisigRequest::new(
-            &e, 
-            &contract_data, 
+        None => {
+            let msig = MultisigRequest::new(
+                &e, 
+                &contract_data, 
             multisig_claim, 
-            successful_signatures, 
-            amount,
-            valid_ts
-        )
+                successful_signatures, 
+                amount,
+                valid_ts
+            );
+
+            set_multisig(e, &msig);
+            msig
+        }
+            
     }
+}
+
+pub fn set_multisig(e: &Env, multisig: &MultisigRequest) {
+    e.storage().temporary().set(&DataKey::MultisigRequest, multisig);
 }
 
 
