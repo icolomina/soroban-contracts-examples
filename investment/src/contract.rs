@@ -1,5 +1,5 @@
 use soroban_sdk::token::TokenClient;
-use soroban_sdk::{contract, contractimpl, log, token, Address, Env, Map, String};
+use soroban_sdk::{contract, contractimpl, token, Address, Env, Map, String};
 
 use crate::balance::{recalculate_contract_balances_from_amount, Amount, CalculateAmounts, ContractBalances};
 use crate::claim::{calculate_next_claim, Claim};
@@ -83,7 +83,7 @@ impl InvestmentContract {
 
     }
 
-    pub fn claim(env: Env, addr: Address) -> Result<Investment, Error>
+    pub fn process_investor_payment(env: Env, addr: Address) -> Result<Investment, Error>
     {
         require!(has_investment(&env, addr.clone()), Error::ContractAlreadyInitialized);
 
@@ -105,7 +105,6 @@ impl InvestmentContract {
             let amount_transferred: i128 = process_investment_claim(&env, &mut investment, &contract_data, &tk, &addr);
             update_investment(&env, addr.clone(), &investment);
             decrement_project_balance(&env, amount_transferred);
-            log!(&env, "En el contrato queda: {}", tk.balance(&env.current_contract_address()));
             return Ok(investment);
         } else {
             return Err(Error::AddressInvestmentNextTransferNotClaimableYet);
@@ -158,7 +157,7 @@ impl InvestmentContract {
         Ok(true)
     }
 
-    pub fn project_withdrawn(env: Env, addr: Address, amount: i128) -> Result<MultisigStatus, Error> {
+    pub fn multisig_withdrawn(env: Env, addr: Address, amount: i128) -> Result<MultisigStatus, Error> {
 
         let valid_ts = env.ledger().timestamp() + 86400;
 
@@ -187,6 +186,19 @@ impl InvestmentContract {
         set_multisig(&env, &multisig);
         Ok(MultisigStatus::WaitingForSignatures)
 
+    }
+
+    pub fn single_withdrawn(env: Env, amount: i128) -> Result<i128, Error> {
+
+        let contract_data: ContractData = get_contract_data(&env);
+        contract_data.admin.require_auth();
+
+        let contract_balances: ContractBalances = get_balances_or_new(&env);
+        require!(contract_balances.project > amount, Error::ContractInsufficientBalance);   
+
+        let tk = get_token(&env);
+        tk.transfer(&env.current_contract_address(), &contract_data.project_address, &amount);
+        Ok(amount)
     }
 
     pub fn check_project_address_balance(env: Env) -> Result<i128, Error> {

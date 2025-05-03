@@ -86,19 +86,19 @@ fn test_investment() {
     let mut last_transfer_ts: u64 = 0;
 
     test_data.client.get_contract_balance();
-    last_transfer_ts = do_claim_test( &test_data, &last_transfer_ts, 1_i128, InvestmentStatus::CashFlowing);
+    last_transfer_ts = do_process_investor_payment_test( &test_data, &last_transfer_ts, 1_i128, InvestmentStatus::CashFlowing);
     e.ledger().set_timestamp(last_transfer_ts + (30 * 24 * 60 * 61));
 
     test_data.client.get_contract_balance();
-    last_transfer_ts = do_claim_test(&test_data, &last_transfer_ts,  2_i128, InvestmentStatus::CashFlowing);
+    last_transfer_ts = do_process_investor_payment_test(&test_data, &last_transfer_ts,  2_i128, InvestmentStatus::CashFlowing);
     e.ledger().set_timestamp(last_transfer_ts + (30 * 24 * 60 * 61));
 
     test_data.client.get_contract_balance();
-    last_transfer_ts = do_claim_test(&test_data, &last_transfer_ts,  3_i128, InvestmentStatus::CashFlowing);
+    last_transfer_ts = do_process_investor_payment_test(&test_data, &last_transfer_ts,  3_i128, InvestmentStatus::CashFlowing);
     e.ledger().set_timestamp(last_transfer_ts + (30 * 24 * 60 * 61));
 
     test_data.client.get_contract_balance();
-    do_claim_test(&test_data, &last_transfer_ts,  4_i128, InvestmentStatus::Finished);
+    do_process_investor_payment_test(&test_data, &last_transfer_ts,  4_i128, InvestmentStatus::Finished);
 
     assert!(test_data.token.balance(&test_data.client.address) < investment_user_1.regular_payment);
 
@@ -153,8 +153,8 @@ fn test_multisig() {
     assert_eq!(test_data.token.balance(&test_data.client.address), 150000_i128);
 
     // Now the project wants to withdraw
-    assert_eq!(test_data.client.project_withdrawn(&test_data.project_address, &40000), MultisigStatus::WaitingForSignatures);
-    assert_eq!(test_data.client.project_withdrawn(&test_data.admin, &40000), MultisigStatus::Completed);
+    assert_eq!(test_data.client.multisig_withdrawn(&test_data.project_address, &40000), MultisigStatus::WaitingForSignatures);
+    assert_eq!(test_data.client.multisig_withdrawn(&test_data.admin, &40000), MultisigStatus::Completed);
 
     assert_eq!(test_data.token.balance(&test_data.client.address), 110000_i128);
     assert_eq!(test_data.token.balance(&test_data.project_address), 40000_i128);
@@ -169,8 +169,8 @@ fn test_invalid_address_signing_multisig() {
 
     do_mint_and_invest(&e, &test_data);
 
-    test_data.client.project_withdrawn(&test_data.project_address, &40000);
-    test_data.client.project_withdrawn(&test_data.user, &40000);
+    test_data.client.multisig_withdrawn(&test_data.project_address, &40000);
+    test_data.client.multisig_withdrawn(&test_data.user, &40000);
 }
 
 #[test]
@@ -182,9 +182,9 @@ fn test_multisig_expired() {
 
     do_mint_and_invest(&e, &test_data);
 
-    test_data.client.project_withdrawn(&test_data.project_address, &40000);
+    test_data.client.multisig_withdrawn(&test_data.project_address, &40000);
     e.ledger().set_timestamp(86600);
-    test_data.client.project_withdrawn(&test_data.admin, &40000);
+    test_data.client.multisig_withdrawn(&test_data.admin, &40000);
 }
 
 #[test]
@@ -196,8 +196,30 @@ fn test_multisig_different_amount() {
 
     do_mint_and_invest(&e, &test_data);
 
-    test_data.client.project_withdrawn(&test_data.project_address, &40000);
-    test_data.client.project_withdrawn(&test_data.admin, &45000);
+    test_data.client.multisig_withdrawn(&test_data.project_address, &40000);
+    test_data.client.multisig_withdrawn(&test_data.admin, &45000);
+}
+
+#[test]
+fn test_single_withdrawn() {
+
+    let e = Env::default();
+    let test_data = create_investment_contract(&e, 500_u32, 7_u64,1000000_i128, 1_u32, 4_u32, 100000_i128);
+    do_mint_and_invest(&e, &test_data);
+
+    test_data.client.single_withdrawn(&40000_i128);
+    assert_eq!(test_data.token.balance(&test_data.project_address), 40000_i128);
+}
+
+#[test]
+#[should_panic(expected = "HostError: Error(Contract, #2)")]
+fn test_single_withdrawn_insufficient_balance() {
+
+    let e = Env::default();
+    let test_data = create_investment_contract(&e, 500_u32, 7_u64,1000000_i128, 1_u32, 4_u32, 100000_i128);
+    do_mint_and_invest(&e, &test_data);
+
+    test_data.client.single_withdrawn(&160000_i128);
 }
 
 fn do_mint_and_invest(e: &Env, test_data: &TestData){
@@ -210,8 +232,8 @@ fn do_mint_and_invest(e: &Env, test_data: &TestData){
     test_data.client.invest(&another_user, &50000);
 }
 
-fn do_claim_test(test_data: &TestData, last_transfer_ts: &u64, multiplier: i128, status: InvestmentStatus) -> u64  {
-    let investment_user_1: Investment = test_data.client.claim(&test_data.user);
+fn do_process_investor_payment_test(test_data: &TestData, last_transfer_ts: &u64, multiplier: i128, status: InvestmentStatus) -> u64  {
+    let investment_user_1: Investment = test_data.client.process_investor_payment(&test_data.user);
     assert_eq!(investment_user_1.status, status);
     assert!(investment_user_1.last_transfer_ts > *last_transfer_ts );
     assert_eq!(investment_user_1.paid, (investment_user_1.regular_payment * multiplier));
