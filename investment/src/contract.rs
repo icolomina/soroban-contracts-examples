@@ -1,7 +1,7 @@
 use soroban_sdk::token::TokenClient;
 use soroban_sdk::{contract, contractimpl, token, Address, Env, Map, String};
 
-use crate::balance::{recalculate_contract_balances_from_amount, Amount, CalculateAmounts, ContractBalances};
+use crate::balance::{recalculate_contract_balances_from_amount, increment_reserve_fund_from_raw_amount, Amount, CalculateAmounts, ContractBalances};
 use crate::claim::{calculate_next_claim, Claim};
 use crate::data::{
     ContractData, DataKey, Error, State, FromNumber
@@ -37,13 +37,6 @@ fn update_investment(e: &Env, addr: Address, investment: &Investment) {
 fn decrement_project_balance(e: &Env, amount: i128) {
     let mut contract_balances = get_balances_or_new(e);
     contract_balances.project -= amount;
-    update_contract_balances(e, &contract_balances);
-}
-
-fn write_balances(e: &Env, amounts: &Amount) {
-    let mut contract_balances = get_balances_or_new(e);
-    recalculate_contract_balances_from_amount(&mut contract_balances, amounts);
-
     update_contract_balances(e, &contract_balances);
 }
 
@@ -129,7 +122,9 @@ impl InvestmentContract {
         let amounts: Amount = Amount::from_investment(&amount, &contract_data.interest_rate);
         tk.transfer(&addr, &env.current_contract_address(), &amount);
 
-        write_balances(&env, &amounts);
+        let mut contract_balances = get_balances_or_new(&env);
+        recalculate_contract_balances_from_amount(&mut contract_balances, &amounts);
+        update_contract_balances(&env, &contract_balances);
         
         let addr_investment: Investment = build_investment(&env, &contract_data, &amount);
         update_investment(&env, addr.clone(), &addr_investment);
@@ -226,5 +221,17 @@ impl InvestmentContract {
         }
 
         Ok(project_address_balance)
+    }
+
+    pub fn add_company_transfer(e: Env, company_addr: Address, amount: i128) -> Result<ContractBalances, Error>{
+        company_addr.require_auth();
+        let tk = get_token(&e);
+        tk.transfer(&company_addr, &e.current_contract_address(), &amount);
+
+        let mut contract_balances = get_balances_or_new(&e);
+        increment_reserve_fund_from_raw_amount(&mut contract_balances, &amount);
+
+        update_contract_balances(&e, &contract_balances);
+        Ok(contract_balances)
     }
 }

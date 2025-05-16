@@ -259,6 +259,17 @@ fn test_single_withdrawn_insufficient_balance() {
     test_data.client.single_withdrawn(&160000_i128);
 }
 
+#[test]
+fn add_company_transfer() {
+    let e = Env::default();
+    let test_data = create_investment_contract(&e, 500_u32, 7_u64,1000000_i128, 1_u32, 4_u32, 100000_i128);
+    do_mint_and_invest(&e, &test_data);
+
+    test_data.token_admin.mint(&test_data.project_address, &1000000);
+    let contract_balances: ContractBalances = test_data.client.add_company_transfer(&test_data.project_address, &1000000);
+    assert!(contract_balances.reserve_fund > 1000000);
+}
+
 fn do_mint_and_invest(e: &Env, test_data: &TestData){
 
     let another_user: Address = Address::generate(e);

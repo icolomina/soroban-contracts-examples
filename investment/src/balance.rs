@@ -60,3 +60,7 @@ pub fn recalculate_contract_balances_from_amount(contract_balances: &mut Contrac
     contract_balances.reserve_fund += amounts.amount_to_reserve_fund;
     contract_balances.project += amounts.amount_to_invest;
 }
+
+pub fn increment_reserve_fund_from_raw_amount(contract_balances: &mut ContractBalances, amount: &i128) {
+    contract_balances.reserve_fund += amount;
+}
