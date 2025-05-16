@@ -5,6 +5,7 @@ use crate::{balance::{Amount, CalculateAmounts}, data::{ContractData, FromNumber
 #[contracttype]
 pub struct Investment {
     pub deposited: i128,
+    pub commission: i128,
     pub accumulated_interests: i128,
     pub total: i128,
     pub claimable_ts: u64,
@@ -12,6 +13,7 @@ pub struct Investment {
     pub status: InvestmentStatus,
     pub regular_payment: i128,
     pub paid: i128,
+    pub payments_transferred: u32
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -30,8 +32,7 @@ pub enum InvestmentStatus {
 #[contracttype]
 pub enum InvestmentReturnType {
     ReverseLoan = 1,
-    Coupon = 2,
-    OneTimePayment = 3,
+    Coupon = 2
 }
 
 impl FromNumber for InvestmentReturnType {
@@ -41,7 +42,6 @@ impl FromNumber for InvestmentReturnType {
         match value {
             1 => Some(InvestmentReturnType::ReverseLoan),
             2 => Some(InvestmentReturnType::Coupon),
-            3 => Some(InvestmentReturnType::OneTimePayment),
             _ => None,
         }
     }
@@ -62,19 +62,20 @@ pub fn build_investment(env: &Env, cd: &ContractData, amount: &i128 ) -> Investm
 
     let regular_payment = match cd.return_type {
         InvestmentReturnType::Coupon => current_interest / cd.return_months as i128,
-        InvestmentReturnType::ReverseLoan => total / cd.return_months as i128,
-        InvestmentReturnType::OneTimePayment => 0
+        InvestmentReturnType::ReverseLoan => total / cd.return_months as i128
     };
 
     let investment = Investment {
         deposited: real_amount,
+        commission: amounts.amount_to_commission,
         accumulated_interests: current_interest,
         total,
         claimable_ts,
         last_transfer_ts: 0_u64,
         status,
         regular_payment,
-        paid: 0_i128
+        paid: 0_i128,
+        payments_transferred: 0_u32
     };
 
     investment
@@ -82,6 +83,7 @@ pub fn build_investment(env: &Env, cd: &ContractData, amount: &i128 ) -> Investm
 
 pub fn process_investment_claim(env: &Env, investment: &mut Investment, contract_data: &ContractData, tk: &TokenClient, addr: &Address) -> i128 {
 
+    let mut amount_transferred: i128;
     if investment.status == InvestmentStatus::Blocked {
         investment.status = InvestmentStatus::CashFlowing;
     }
@@ -89,16 +91,21 @@ pub fn process_investment_claim(env: &Env, investment: &mut Investment, contract
     tk.transfer(&env.current_contract_address(), &addr, &investment.regular_payment);
     investment.paid += &investment.regular_payment;
     investment.last_transfer_ts = env.ledger().timestamp();
+    investment.payments_transferred += 1;
+    amount_transferred = investment.regular_payment;
     log!(env, "fecha de ultima transferencia {}", investment.last_transfer_ts);
     
-    if contract_data.return_type == InvestmentReturnType::ReverseLoan && investment.paid > (investment.total - investment.regular_payment) {
+    if contract_data.return_type == InvestmentReturnType::ReverseLoan && investment.payments_transferred >= contract_data.return_months {
         investment.status = InvestmentStatus::Finished;
+
     }
 
-    if contract_data.return_type == InvestmentReturnType::Coupon && investment.paid >= investment.accumulated_interests {
+    if contract_data.return_type == InvestmentReturnType::Coupon && investment.payments_transferred >= contract_data.return_months {
         tk.transfer(&env.current_contract_address(), &addr, &investment.deposited);
         investment.status = InvestmentStatus::Finished;
+        investment.paid += &investment.deposited;
+        amount_transferred += investment.deposited;
     }
 
-    investment.regular_payment
+    amount_transferred
 }

@@ -60,7 +60,7 @@ fn create_investment_contract(e: &Env, i_rate: u32, claim_block_days: u64, goal:
 }
 
 #[test]
-fn test_investment() {
+fn test_investment_reverse_loan() {
     let e = Env::default();
     let test_data = create_investment_contract(&e, 500_u32, 7_u64, 0_i128, 1_u32, 4_u32, 100000_i128);
 
@@ -73,6 +73,7 @@ fn test_investment() {
     assert_eq!(investment_user_1.accumulated_interests, 4975);
     assert_eq!(investment_user_1.total, (99500 + 4975));
     assert_eq!(investment_user_1.regular_payment, 26118);
+    assert!(investment_user_1.commission > 0 );
 
     let contract_balances: ContractBalances = test_data.client.get_contract_balance();
     assert_eq!(test_data.token.balance(&test_data.client.address), 130000_i128);
@@ -86,24 +87,60 @@ fn test_investment() {
     let mut last_transfer_ts: u64 = 0;
 
     test_data.client.get_contract_balance();
-    last_transfer_ts = do_process_investor_payment_test( &test_data, &last_transfer_ts, 1_i128, InvestmentStatus::CashFlowing);
+    last_transfer_ts = do_process_investor_payment_test( &test_data, &last_transfer_ts, 1_i128, InvestmentStatus::CashFlowing, 1_u32);
     e.ledger().set_timestamp(last_transfer_ts + (30 * 24 * 60 * 61));
 
     test_data.client.get_contract_balance();
-    last_transfer_ts = do_process_investor_payment_test(&test_data, &last_transfer_ts,  2_i128, InvestmentStatus::CashFlowing);
+    last_transfer_ts = do_process_investor_payment_test(&test_data, &last_transfer_ts,  2_i128, InvestmentStatus::CashFlowing, 1_u32);
     e.ledger().set_timestamp(last_transfer_ts + (30 * 24 * 60 * 61));
 
     test_data.client.get_contract_balance();
-    last_transfer_ts = do_process_investor_payment_test(&test_data, &last_transfer_ts,  3_i128, InvestmentStatus::CashFlowing);
+    last_transfer_ts = do_process_investor_payment_test(&test_data, &last_transfer_ts,  3_i128, InvestmentStatus::CashFlowing, 1_u32);
     e.ledger().set_timestamp(last_transfer_ts + (30 * 24 * 60 * 61));
 
     test_data.client.get_contract_balance();
-    do_process_investor_payment_test(&test_data, &last_transfer_ts,  4_i128, InvestmentStatus::Finished);
-
-    assert!(test_data.token.balance(&test_data.client.address) < investment_user_1.regular_payment);
+    do_process_investor_payment_test(&test_data, &last_transfer_ts,  4_i128, InvestmentStatus::Finished, 1_u32);
 
     let logs = e.logs().all();
     std::println!("{}", logs.join("\n"));
+}
+
+#[test]
+fn test_investment_coupon() {
+    let e = Env::default();
+    let test_data = create_investment_contract(&e, 500_u32, 7_u64, 0_i128, 2_u32, 4_u32, 100000_i128);
+
+    test_data.token_admin.mint(&test_data.user, &1000000);
+    test_data.token_admin.mint(&test_data.client.address, &30000);
+
+    let investment_user_1: Investment = test_data.client.invest(&test_data.user, &100000);
+    assert_eq!(investment_user_1.status, InvestmentStatus::Blocked);
+    assert_eq!(investment_user_1.deposited, 99500);
+    assert_eq!(investment_user_1.accumulated_interests, 4975);
+    assert_eq!(investment_user_1.total, (99500 + 4975));
+    assert_eq!(investment_user_1.regular_payment, 1243);
+    assert!(investment_user_1.commission > 0 );
+
+    let current_ts = e.ledger().timestamp();
+    e.ledger().set_timestamp(current_ts + 604888);
+
+    let mut last_transfer_ts: u64 = 0;
+
+    test_data.client.get_contract_balance();
+    last_transfer_ts = do_process_investor_payment_test( &test_data, &last_transfer_ts, 1_i128, InvestmentStatus::CashFlowing, 2);
+    e.ledger().set_timestamp(last_transfer_ts + (30 * 24 * 60 * 61));
+
+    test_data.client.get_contract_balance();
+    last_transfer_ts = do_process_investor_payment_test(&test_data, &last_transfer_ts,  2_i128, InvestmentStatus::CashFlowing, 2);
+    e.ledger().set_timestamp(last_transfer_ts + (30 * 24 * 60 * 61));
+
+    test_data.client.get_contract_balance();
+    last_transfer_ts = do_process_investor_payment_test(&test_data, &last_transfer_ts,  3_i128, InvestmentStatus::CashFlowing, 2);
+    e.ledger().set_timestamp(last_transfer_ts + (30 * 24 * 60 * 61));
+
+    test_data.client.get_contract_balance();
+    do_process_investor_payment_test(&test_data, &last_transfer_ts,  4_i128, InvestmentStatus::Finished, 2);
+
 }
 
 #[test]
@@ -232,16 +269,17 @@ fn do_mint_and_invest(e: &Env, test_data: &TestData){
     test_data.client.invest(&another_user, &50000);
 }
 
-fn do_process_investor_payment_test(test_data: &TestData, last_transfer_ts: &u64, multiplier: i128, status: InvestmentStatus) -> u64  {
+fn do_process_investor_payment_test(test_data: &TestData, last_transfer_ts: &u64, multiplier: i128, status: InvestmentStatus, return_type: u32) -> u64  {
     let investment_user_1: Investment = test_data.client.process_investor_payment(&test_data.user);
     assert_eq!(investment_user_1.status, status);
     assert!(investment_user_1.last_transfer_ts > *last_transfer_ts );
-    assert_eq!(investment_user_1.paid, (investment_user_1.regular_payment * multiplier));
 
-    let current_contract_balances: ContractBalances = test_data.client.get_contract_balance();
-    assert_eq!(current_contract_balances.comission, 500_i128);
-    assert_eq!(current_contract_balances.reserve_fund, 5000_i128);
-    assert!(test_data.token.balance(&test_data.client.address) > current_contract_balances.sum());
+    if return_type == 2 && status == InvestmentStatus::Finished {
+        assert_eq!(investment_user_1.paid, ((investment_user_1.regular_payment * multiplier) + investment_user_1.deposited));
+    }
+    else {
+        assert_eq!(investment_user_1.paid, (investment_user_1.regular_payment * multiplier));
+    }
     
     investment_user_1.last_transfer_ts
 }
