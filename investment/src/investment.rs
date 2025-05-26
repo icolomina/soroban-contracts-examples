@@ -1,5 +1,5 @@
 
-use soroban_sdk::{contracttype, log, token::TokenClient, Address, Env};
+use soroban_sdk::{contracttype, Env};
 use crate::{balance::{Amount, CalculateAmounts}, data::{ContractData, FromNumber}};
 
 #[contracttype]
@@ -81,19 +81,17 @@ pub fn build_investment(env: &Env, cd: &ContractData, amount: &i128 ) -> Investm
     investment
 }
 
-pub fn process_investment_claim(env: &Env, investment: &mut Investment, contract_data: &ContractData, tk: &TokenClient, addr: &Address) -> i128 {
+pub fn process_investment_payment(env: &Env, investment: &mut Investment, contract_data: &ContractData) -> i128 {
 
-    let mut amount_transferred: i128;
+    let mut amount_to_transfer: i128;
     if investment.status == InvestmentStatus::Blocked {
         investment.status = InvestmentStatus::CashFlowing;
     }
 
-    tk.transfer(&env.current_contract_address(), &addr, &investment.regular_payment);
     investment.paid += &investment.regular_payment;
     investment.last_transfer_ts = env.ledger().timestamp();
     investment.payments_transferred += 1;
-    amount_transferred = investment.regular_payment;
-    log!(env, "fecha de ultima transferencia {}", investment.last_transfer_ts);
+    amount_to_transfer = investment.regular_payment;
     
     if contract_data.return_type == InvestmentReturnType::ReverseLoan && investment.payments_transferred >= contract_data.return_months {
         investment.status = InvestmentStatus::Finished;
@@ -101,11 +99,10 @@ pub fn process_investment_claim(env: &Env, investment: &mut Investment, contract
     }
 
     if contract_data.return_type == InvestmentReturnType::Coupon && investment.payments_transferred >= contract_data.return_months {
-        tk.transfer(&env.current_contract_address(), &addr, &investment.deposited);
         investment.status = InvestmentStatus::Finished;
         investment.paid += &investment.deposited;
-        amount_transferred += investment.deposited;
+        amount_to_transfer += investment.deposited;
     }
 
-    amount_transferred
+    amount_to_transfer
 }

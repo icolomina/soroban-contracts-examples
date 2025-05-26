@@ -64,3 +64,18 @@ pub fn recalculate_contract_balances_from_amount(contract_balances: &mut Contrac
 pub fn increment_reserve_fund_from_raw_amount(contract_balances: &mut ContractBalances, amount: &i128) {
     contract_balances.reserve_fund += amount;
 }
+
+pub fn decrement_project_balance_from_raw_amount(contract_balances: &mut ContractBalances, amount: &i128) {
+    contract_balances.project -= amount;
+}
+
+pub  fn decrement_project_balance_or_reserve_fund_from_raw_amount(contract_balances: &mut ContractBalances, amount: &i128) {
+    if contract_balances.project < *amount {
+        let diff = amount - contract_balances.project;
+        contract_balances.project = 0;
+        contract_balances.reserve_fund -= diff;
+    } else {
+        contract_balances.project -= amount;
+    }
+}
+ 

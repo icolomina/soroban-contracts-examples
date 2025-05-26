@@ -1,4 +1,4 @@
-use soroban_sdk::{contracttype, log, Env};
+use soroban_sdk::{contracttype, Env};
 use crate::investment::Investment;
 
 #[contracttype]
@@ -11,9 +11,6 @@ pub struct Claim {
 impl Claim {
     pub fn is_claim_next(&self, env: &Env) -> bool {
         let week_seconds: u64 = 7 * 24 * 60 * 60;
-        log!(env, "Next Transfer Ts es {}", self.next_transfer_ts);
-        log!(env, "Ledger Timestamp is {}", env.ledger().timestamp());
-        log!(env, "Seconds in a week is {}", week_seconds);
         return self.next_transfer_ts <= env.ledger().timestamp() + week_seconds;
     }
 }

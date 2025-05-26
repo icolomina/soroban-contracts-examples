@@ -1,4 +1,4 @@
-use crate::{balance::ContractBalances, claim::Claim, data::{ContractData, DataKey}, investment::Investment, multisig::MultisigRequest};
+use crate::{balance::ContractBalances, claim::Claim, data::{ContractData, DataKey, InvestmentHash}, investment::Investment, multisig::MultisigRequest};
 use soroban_sdk::{Address, Env, Map, String};
 
 pub(self) const DAY_IN_LEDGERS: u32 = 17280;
@@ -23,18 +23,13 @@ pub fn update_contract_data(e: &Env, contract_data: &ContractData) {
     e.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
 }
 
-pub fn has_investment(e: &Env, addr: Address) -> bool {
-    let key = DataKey::Investment(addr);
-    if e.storage().persistent().has(&key) {
-        e.storage().persistent().extend_ttl(&key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
-        return true;
-    }
-
-    false
-}
-
-pub fn get_investment(e: &Env, addr: Address) -> Option<Investment> {
-    let key = DataKey::Investment(addr);
+pub fn get_investment(e: &Env, addr: Address, ts: u64) -> Option<Investment> {
+    let key = DataKey::Investment(
+        InvestmentHash{
+            addr,
+            ts
+        }
+    );
     if let Some(investment_data) = e.storage().persistent().get(&key).unwrap() {
         e.storage().persistent().extend_ttl(&key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
         return Some(investment_data);
@@ -44,7 +39,12 @@ pub fn get_investment(e: &Env, addr: Address) -> Option<Investment> {
 }
 
 pub fn set_investment(e: &Env, addr: Address, investment: &Investment) {
-    let key = DataKey::Investment(addr);
+    let key = DataKey::Investment(
+        InvestmentHash{
+            addr,
+            ts: investment.claimable_ts
+        }
+    );
     e.storage().persistent().set(&key, investment);
     e.storage().persistent().extend_ttl(&key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 }
