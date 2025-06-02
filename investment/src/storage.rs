@@ -1,4 +1,4 @@
-use crate::{balance::ContractBalances, claim::Claim, data::{ContractData, DataKey, InvestmentHash}, investment::Investment, multisig::MultisigRequest};
+use crate::{balance::ContractBalances, claim::Claim, data::{ContractData, DataKey}, investment::Investment, multisig::MultisigRequest};
 use soroban_sdk::{Address, Env, Map, String};
 
 pub(self) const DAY_IN_LEDGERS: u32 = 17280;
@@ -24,13 +24,10 @@ pub fn update_contract_data(e: &Env, contract_data: &ContractData) {
 }
 
 pub fn get_investment(e: &Env, addr: Address, ts: u64) -> Option<Investment> {
-    let key = DataKey::Investment(
-        InvestmentHash{
-            addr,
-            ts
-        }
-    );
-    if let Some(investment_data) = e.storage().persistent().get(&key).unwrap() {
+    let key = DataKey::Investment(addr);
+    let addr_investments = e.storage().persistent().get(&key).unwrap_or(Map::<u64, Investment>::new(&e));
+    
+    if let Some(investment_data) = addr_investments.get(ts) {
         e.storage().persistent().extend_ttl(&key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
         return Some(investment_data);
     }
@@ -39,13 +36,13 @@ pub fn get_investment(e: &Env, addr: Address, ts: u64) -> Option<Investment> {
 }
 
 pub fn set_investment(e: &Env, addr: Address, investment: &Investment) {
-    let key = DataKey::Investment(
-        InvestmentHash{
-            addr,
-            ts: investment.claimable_ts
-        }
-    );
-    e.storage().persistent().set(&key, investment);
+    let key = DataKey::Investment(addr);
+
+    let mut addr_investments = e.storage().persistent().get(&key).unwrap_or(Map::<u64, Investment>::new(&e));
+    addr_investments.set(investment.claimable_ts, *investment);
+
+
+    e.storage().persistent().set(&key, &addr_investments);
     e.storage().persistent().extend_ttl(&key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 }
 

@@ -65,13 +65,6 @@ pub enum State {
 
 #[derive(Clone)]
 #[contracttype]
-pub struct  InvestmentHash {
-    pub addr: Address,
-    pub ts: u64
-}
-
-#[derive(Clone)]
-#[contracttype]
 pub enum DataKey {
     InterestRate,
     DepositStart(Address),
@@ -82,7 +75,7 @@ pub enum DataKey {
     ClaimTime(Address),
     AddressStatus(Address),
     ContractData,
-    Investment(InvestmentHash),
+    Investment(Address),
     BalanceReserveFund,
     BalanceComission,
     BalanceProject,

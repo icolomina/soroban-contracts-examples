@@ -3,6 +3,7 @@ use soroban_sdk::{contracttype, Env};
 use crate::{balance::{Amount, CalculateAmounts}, data::{ContractData, FromNumber}};
 
 #[contracttype]
+#[derive(Copy, Clone)]
 pub struct Investment {
     pub deposited: i128,
     pub commission: i128,

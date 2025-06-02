@@ -204,7 +204,6 @@ impl InvestmentContract {
 
         let contract_data: ContractData = get_contract_data(&env);
         require!(contract_data.state != State::FinancingReached, Error::ContractFinancingReached);
-      //  require!(!has_investment(&env, addr.clone()), Error::AddressAlreadyInvested);
 
         addr.require_auth();
         let tk = get_token(&env);

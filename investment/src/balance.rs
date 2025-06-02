@@ -1,5 +1,24 @@
 use soroban_sdk::contracttype;
 
+pub(self) const LOWER_AMOUNT_FOR_COMMISSION_REDUCTION: i128 = 100;
+pub(self) const LOWER_DIVISOR: u32 = 10;
+pub(self) const UPPER_DIVISOR: u32 = 60;
+pub(self) const AMOUNT_PER_COMMISSION_REDUCTION: i128 = 400;
+
+pub fn calculate_rate_denominator(amount: &i128) -> u32 {
+
+    if amount <= &LOWER_AMOUNT_FOR_COMMISSION_REDUCTION {
+        return LOWER_DIVISOR;
+    }
+
+    let a = (amount - LOWER_AMOUNT_FOR_COMMISSION_REDUCTION) / AMOUNT_PER_COMMISSION_REDUCTION;
+    if a > UPPER_DIVISOR as i128 {
+        return UPPER_DIVISOR;
+    }
+
+    LOWER_DIVISOR + a as u32
+}
+
 #[contracttype]
 pub struct ContractBalances {
     pub reserve_fund: i128,
@@ -41,7 +60,8 @@ pub trait CalculateAmounts {
 impl CalculateAmounts for Amount {
     fn from_investment(amount: &i128, i_rate: &u32) -> Amount {
 
-        let commision_rate = i_rate / 10;
+        let rate_denominator: u32 = calculate_rate_denominator(&amount);
+        let commision_rate = i_rate / rate_denominator;
 
         let amount_to_commission = amount * (commision_rate as i128) / 100 / 100;
         let amount_to_reserve_fund = amount * 5 / 100;
