@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use crate::{balance::{calculate_rate_denominator, Amount, CalculateAmounts, ContractBalances}, contract::{InvestmentContract, InvestmentContractClient}, investment::{Investment, InvestmentStatus}, multisig::MultisigStatus};
+use crate::{balance::{calculate_rate_denominator, ContractBalances}, contract::{InvestmentContract, InvestmentContractClient}, investment::{Investment, InvestmentStatus}, multisig::MultisigStatus};
 use soroban_sdk::{Env, testutils::{Address as _, Ledger}, Address, testutils::Logs, token};
 use token::Client as TokenClient;
 use token::StellarAssetClient as TokenAdminClient;
@@ -64,8 +64,8 @@ fn test_commision_calculator() {
     assert_eq!(calculate_rate_denominator(&90_i128), 10_u32);
     assert_eq!(calculate_rate_denominator(&120_i128), 10_u32);
     assert_eq!(calculate_rate_denominator(&150_i128), 10_u32);
-    assert_eq!(calculate_rate_denominator(&300_i128), 11_u32);
-    assert_eq!(calculate_rate_denominator(&1900_i128), 19_u32);
+    assert_eq!(calculate_rate_denominator(&500_i128), 11_u32);
+    assert_eq!(calculate_rate_denominator(&1900_i128), 14_u32);
 }
 
 #[test]

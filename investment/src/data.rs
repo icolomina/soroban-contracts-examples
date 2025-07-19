@@ -81,5 +81,6 @@ pub enum DataKey {
     BalanceProject,
     ClaimsMap,
     MultisigRequest,
-    ContractBalances
+    ContractBalances,
+    ContractFundsReceived
 }

@@ -23,7 +23,8 @@ pub fn calculate_rate_denominator(amount: &i128) -> u32 {
 pub struct ContractBalances {
     pub reserve_fund: i128,
     pub project: i128,
-    pub comission: i128
+    pub comission: i128,
+    pub received_so_far: i128
 }
 
 impl ContractBalances {
@@ -31,7 +32,8 @@ impl ContractBalances {
         ContractBalances {
             reserve_fund: 0_i128,
             project: 0_i128,
-            comission: 0_i128
+            comission: 0_i128,
+            received_so_far: 0_i128
         }
     }
 
@@ -79,6 +81,7 @@ pub fn recalculate_contract_balances_from_amount(contract_balances: &mut Contrac
     contract_balances.comission += amounts.amount_to_commission;
     contract_balances.reserve_fund += amounts.amount_to_reserve_fund;
     contract_balances.project += amounts.amount_to_invest;
+    contract_balances.received_so_far += amounts.amount_to_reserve_fund + amounts.amount_to_invest;
 }
 
 pub fn increment_reserve_fund_from_raw_amount(contract_balances: &mut ContractBalances, amount: &i128) {
@@ -89,7 +92,7 @@ pub fn decrement_project_balance_from_raw_amount(contract_balances: &mut Contrac
     contract_balances.project -= amount;
 }
 
-pub  fn decrement_project_balance_or_reserve_fund_from_raw_amount(contract_balances: &mut ContractBalances, amount: &i128) {
+pub fn decrement_project_balance_or_reserve_fund_from_raw_amount(contract_balances: &mut ContractBalances, amount: &i128) {
     if contract_balances.project < *amount {
         let diff = amount - contract_balances.project;
         contract_balances.project = 0;
@@ -98,4 +101,4 @@ pub  fn decrement_project_balance_or_reserve_fund_from_raw_amount(contract_balan
         contract_balances.project -= amount;
     }
 }
- 
+
