@@ -21,24 +21,30 @@ pub fn calculate_rate_denominator(amount: &i128) -> u32 {
 
 #[contracttype]
 pub struct ContractBalances {
-    pub reserve_fund: i128,
+    pub reserve: i128,
     pub project: i128,
     pub comission: i128,
-    pub received_so_far: i128
+    pub received_so_far: i128,
+    pub payments: i128,
+    pub reserve_contributions: i128,
+    pub project_withdrawals: i128
 }
 
 impl ContractBalances {
     pub fn new() -> Self {
         ContractBalances {
-            reserve_fund: 0_i128,
+            reserve: 0_i128,
             project: 0_i128,
             comission: 0_i128,
-            received_so_far: 0_i128
+            received_so_far: 0_i128,
+            payments: 0_i128,
+            reserve_contributions: 0_i128,
+            project_withdrawals: 0_i128
         }
     }
 
     pub fn sum(&self) -> i128 {
-        return self.comission + self.project + self.reserve_fund;
+        return self.comission + self.project + self.reserve;
     }
 }
 
@@ -77,28 +83,30 @@ impl CalculateAmounts for Amount {
     }
 }
 
-pub fn recalculate_contract_balances_from_amount(contract_balances: &mut ContractBalances, amounts: &Amount) {
+pub fn recalculate_contract_balances_from_investment(contract_balances: &mut ContractBalances, amounts: &Amount) {
     contract_balances.comission += amounts.amount_to_commission;
-    contract_balances.reserve_fund += amounts.amount_to_reserve_fund;
+    contract_balances.reserve += amounts.amount_to_reserve_fund;
     contract_balances.project += amounts.amount_to_invest;
     contract_balances.received_so_far += amounts.amount_to_reserve_fund + amounts.amount_to_invest;
 }
 
-pub fn increment_reserve_fund_from_raw_amount(contract_balances: &mut ContractBalances, amount: &i128) {
-    contract_balances.reserve_fund += amount;
+pub fn increment_reserve_balance_from_company_contribution(contract_balances: &mut ContractBalances, amount: &i128) {
+    contract_balances.reserve += amount;
+    contract_balances.reserve_contributions += amount;
 }
 
-pub fn decrement_project_balance_from_raw_amount(contract_balances: &mut ContractBalances, amount: &i128) {
+pub fn decrement_project_balance_from_company_withdrawal(contract_balances: &mut ContractBalances, amount: &i128) {
     contract_balances.project -= amount;
+    contract_balances.project_withdrawals += amount;
 }
 
-pub fn decrement_project_balance_or_reserve_fund_from_raw_amount(contract_balances: &mut ContractBalances, amount: &i128) {
-    if contract_balances.project < *amount {
-        let diff = amount - contract_balances.project;
-        contract_balances.project = 0;
-        contract_balances.reserve_fund -= diff;
-    } else {
-        contract_balances.project -= amount;
-    }
+pub fn decrement_project_balance_from_payment_to_investor(contract_balances: &mut ContractBalances, amount: &i128) {
+    contract_balances.reserve -= amount;
+    contract_balances.payments += amount;
+}
+
+pub fn move_from_project_balance_to_reserve_balance(contract_balances: &mut ContractBalances, amount: &i128) {
+    contract_balances.project -= amount;
+    contract_balances.reserve += amount;
 }
 

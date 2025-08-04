@@ -1,4 +1,4 @@
-use soroban_sdk::{contracterror, contracttype, Address};
+use soroban_sdk::{contracterror, contracttype, symbol_short, Address, Symbol};
 use crate::investment::InvestmentReturnType;
 
 pub trait FromNumber {
@@ -7,6 +7,9 @@ pub trait FromNumber {
         Self: Sized,
         N: Into<u32>;
 }
+
+pub const TOPIC_CONTRACT_BALANCE_UPDATED: Symbol = symbol_short!("CBUPDATED");
+
 
 #[contracttype]
 pub struct ContractData {
@@ -48,7 +51,8 @@ pub enum Error {
     ProjectAddressInsufficientBalance = 20,
     WithdrawalUnexpectedSignature = 21,
     WithdrawalExpiredSignature = 22,
-    WithdrawalInvalidAmount = 23
+    WithdrawalInvalidAmount = 23,
+    ProjectBalanceInsufficientAmount = 24
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
