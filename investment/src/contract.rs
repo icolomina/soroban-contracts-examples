@@ -2,10 +2,16 @@ use soroban_sdk::token::TokenClient;
 use soroban_sdk::{contract, contractimpl, token, Address, Env, Map, String};
 
 use crate::balance::{
-    decrement_project_balance_from_company_withdrawal, decrement_project_balance_from_payment_to_investor, increment_reserve_balance_from_company_contribution, move_from_project_balance_to_reserve_balance, recalculate_contract_balances_from_investment, Amount, CalculateAmounts, ContractBalances
+    decrement_project_balance_from_company_withdrawal,
+    decrement_project_balance_from_payment_to_investor,
+    increment_reserve_balance_from_company_contribution,
+    move_from_project_balance_to_reserve_balance, recalculate_contract_balances_from_investment,
+    Amount, CalculateAmounts, ContractBalances,
 };
 use crate::claim::{calculate_next_claim, Claim};
-use crate::data::{ContractData, DataKey, Error, FromNumber, State, TOPIC_CONTRACT_BALANCE_UPDATED};
+use crate::data::{
+    ContractData, DataKey, Error, FromNumber, State, TOPIC_CONTRACT_BALANCE_UPDATED,
+};
 use crate::investment::{
     build_investment, process_investment_payment, Investment, InvestmentReturnType,
     InvestmentStatus,
@@ -13,8 +19,8 @@ use crate::investment::{
 use crate::multisig::{MultisigRequest, MultisigStatus};
 use crate::storage::{
     get_balances_or_new, get_claims_map_or_new, get_contract_data, get_investment,
-    get_multisig_or_new, set_investment, set_multisig, update_claims_map,
-    update_contract_balances, update_contract_data,
+    get_multisig_or_new, set_investment, set_multisig, update_claims_map, update_contract_balances,
+    update_contract_data,
 };
 
 macro_rules! require {
@@ -39,12 +45,33 @@ fn update_investment(e: &Env, addr: Address, investment: &Investment) {
     update_claims_map(e, claims_map);
 }
 
+fn get_reserve_required_extra_funds(e: &Env) -> i128 {
+
+    let claims_map: Map<Address, Claim> = get_claims_map_or_new(&e);
+    let project_balances: ContractBalances = get_balances_or_new(&e);
+    let mut min_funds: i128 = 0;
+
+    for (_addr, next_claim) in claims_map.iter() {
+        if next_claim.is_claim_next(&e) {
+            min_funds += next_claim.amount_to_pay;
+        }
+    }
+
+    if min_funds > 0 {
+        if project_balances.reserve < min_funds {
+            let diff_to_contribute: i128 = min_funds - project_balances.reserve;
+            return diff_to_contribute;
+        }
+    }
+
+    0_i128
+}
+
 #[contract]
 pub struct InvestmentContract;
 
 #[contractimpl]
 impl InvestmentContract {
-
     /// Constructor for the contract.
     ///
     /// Initializes the contract with the required parameters.
@@ -129,7 +156,6 @@ impl InvestmentContract {
     /// * `ContractInsufficientBalance` if the contract does not have sufficient funds.
     /// * `AddressInvestmentNextTransferNotClaimableYet` if the next transfer is not claimable yet.
     pub fn process_investor_payment(env: Env, addr: Address, ts: u64) -> Result<Investment, Error> {
-
         let contract_data: ContractData = get_contract_data(&env);
         contract_data.admin.require_auth();
 
@@ -138,29 +164,41 @@ impl InvestmentContract {
             Some(inv) => investment = inv,
             None => return Err(Error::AddressHasNotInvested),
         }
-        require!(env.ledger().timestamp() >= investment.claimable_ts, Error::AddressInvestmentIsNotClaimableYet);
-        require!(investment.status != InvestmentStatus::Finished, Error::AddressInvestmentIsFinished);
+        require!(
+            env.ledger().timestamp() >= investment.claimable_ts,
+            Error::AddressInvestmentIsNotClaimableYet
+        );
+        require!(
+            investment.status != InvestmentStatus::Finished,
+            Error::AddressInvestmentIsFinished
+        );
 
         let mut contract_balances: ContractBalances = get_balances_or_new(&env);
 
         let seconds_in_a_month = 30 * 24 * 60 * 60;
-        if investment.last_transfer_ts == 0 || (env.ledger().timestamp() - investment.last_transfer_ts) > seconds_in_a_month
+        if investment.last_transfer_ts == 0
+            || (env.ledger().timestamp() - investment.last_transfer_ts) > seconds_in_a_month
         {
             let tk = get_token(&env);
-            let amount_to_transfer: i128 = process_investment_payment(&env, &mut investment, &contract_data);
+            let amount_to_transfer: i128 =
+                process_investment_payment(&env, &mut investment, &contract_data);
 
-            require!(amount_to_transfer < contract_balances.reserve, Error::ContractInsufficientBalance);
+            require!(
+                amount_to_transfer < contract_balances.reserve,
+                Error::ContractInsufficientBalance
+            );
 
             tk.transfer(&env.current_contract_address(), &addr, &amount_to_transfer);
 
             update_investment(&env, addr.clone(), &investment);
-            decrement_project_balance_from_payment_to_investor(&mut contract_balances, &amount_to_transfer);
+            decrement_project_balance_from_payment_to_investor(
+                &mut contract_balances,
+                &amount_to_transfer,
+            );
             update_contract_balances(&env, &contract_balances);
 
-            env.events().publish(
-                (TOPIC_CONTRACT_BALANCE_UPDATED, ),
-                contract_balances
-            );
+            env.events()
+                .publish((TOPIC_CONTRACT_BALANCE_UPDATED,), contract_balances);
             return Ok(investment);
         } else {
             return Err(Error::AddressInvestmentNextTransferNotClaimableYet);
@@ -195,12 +233,18 @@ impl InvestmentContract {
         require!(amount > 0, Error::AmountLessOrEqualThan0);
 
         let mut contract_data: ContractData = get_contract_data(&env);
-        require!(contract_data.state != State::FinancingReached, Error::ContractFinancingReached);
+        require!(
+            contract_data.state != State::FinancingReached,
+            Error::ContractFinancingReached
+        );
 
         addr.require_auth();
         let tk = get_token(&env);
 
-        require!(tk.balance(&addr) >= amount, Error::AddressInsufficientBalance);
+        require!(
+            tk.balance(&addr) >= amount,
+            Error::AddressInsufficientBalance
+        );
 
         let amounts: Amount = Amount::from_investment(&amount, &contract_data.interest_rate);
         tk.transfer(&addr, &env.current_contract_address(), &amount);
@@ -217,10 +261,8 @@ impl InvestmentContract {
             update_contract_data(&env, &contract_data);
         }
 
-        env.events().publish(
-            (TOPIC_CONTRACT_BALANCE_UPDATED, ),
-            contract_balances
-        );
+        env.events()
+            .publish((TOPIC_CONTRACT_BALANCE_UPDATED,), contract_balances);
 
         Ok(addr_investment)
     }
@@ -288,13 +330,20 @@ impl InvestmentContract {
     /// * `WithdrawalUnexpectedSignature` if the signature is not valid for this request.
     /// * `WithdrawalExpiredSignature` if the multisig request has expired.
     /// * `WithdrawalInvalidAmount` if the requested amount does not match the multisig amount.
-    pub fn multisig_withdrawn(env: Env, addr: Address, amount: i128) -> Result<MultisigStatus, Error> {
+    pub fn multisig_withdrawn(
+        env: Env,
+        addr: Address,
+        amount: i128,
+    ) -> Result<MultisigStatus, Error> {
         let valid_ts = env.ledger().timestamp() + 86400;
 
         let tk = get_token(&env);
         let contract_balances: ContractBalances = get_balances_or_new(&env);
 
-        require!(contract_balances.project > amount, Error::ContractInsufficientBalance);
+        require!(
+            contract_balances.project > amount,
+            Error::ContractInsufficientBalance
+        );
 
         let contract_data: ContractData = get_contract_data(&env);
         let multisig_claim: String = String::from_str(&env, "project_withdrawn");
@@ -307,8 +356,14 @@ impl InvestmentContract {
             valid_ts,
         );
 
-        require!(multisig.is_valid_signature(addr.clone()), Error::WithdrawalUnexpectedSignature);
-        require!(!multisig.is_expired(env.ledger().timestamp()), Error::WithdrawalExpiredSignature);
+        require!(
+            multisig.is_valid_signature(addr.clone()),
+            Error::WithdrawalUnexpectedSignature
+        );
+        require!(
+            !multisig.is_expired(env.ledger().timestamp()),
+            Error::WithdrawalExpiredSignature
+        );
         require!(amount == multisig.amount, Error::WithdrawalInvalidAmount);
 
         addr.require_auth();
@@ -363,10 +418,8 @@ impl InvestmentContract {
         );
         decrement_project_balance_from_company_withdrawal(&mut contract_balances, &amount);
         update_contract_balances(&env, &contract_balances);
-        env.events().publish(
-            (TOPIC_CONTRACT_BALANCE_UPDATED, ),
-            contract_balances
-        );
+        env.events()
+            .publish((TOPIC_CONTRACT_BALANCE_UPDATED,), contract_balances);
 
         Ok(true)
     }
@@ -383,28 +436,12 @@ impl InvestmentContract {
     ///
     /// * Returns the additional amount required if the current project balance is insufficient,
     ///   otherwise returns 0.
-    pub fn check_project_address_balance(env: Env) -> Result<i128, Error> {
+    pub fn check_reserve_balance(env: Env) -> Result<i128, Error> {
         let contract_data: ContractData = get_contract_data(&env);
         contract_data.admin.require_auth();
 
-        let claims_map: Map<Address, Claim> = get_claims_map_or_new(&env);
-        let project_balances: ContractBalances = get_balances_or_new(&env);
-        let mut min_funds: i128 = 0;
-
-        for (_addr, next_claim) in claims_map.iter() {
-            if next_claim.is_claim_next(&env) {
-                min_funds += next_claim.amount_to_pay;
-            }
-        }
-
-        if min_funds > 0 {
-            if project_balances.reserve < min_funds {
-                let diff_to_contribute: i128 = min_funds - project_balances.reserve;
-                return Ok(diff_to_contribute);
-            }
-        }
-
-        Ok(0_i128)
+        let diff: i128 = get_reserve_required_extra_funds(&env);
+        Ok(diff)
     }
 
     /// Allows a company to add a transfer to the contract.
@@ -433,10 +470,8 @@ impl InvestmentContract {
         let mut contract_balances = get_balances_or_new(&e);
         increment_reserve_balance_from_company_contribution(&mut contract_balances, &amount);
         update_contract_balances(&e, &contract_balances);
-        e.events().publish(
-            (TOPIC_CONTRACT_BALANCE_UPDATED, ),
-            contract_balances
-        );
+        e.events()
+            .publish((TOPIC_CONTRACT_BALANCE_UPDATED,), contract_balances);
 
         Ok(true)
     }
@@ -446,14 +481,15 @@ impl InvestmentContract {
         contract_data.admin.require_auth();
 
         let mut contract_balances = get_balances_or_new(&e);
-        require!(contract_balances.project > amount, Error::ProjectBalanceInsufficientAmount);
+        require!(
+            contract_balances.project > amount,
+            Error::ProjectBalanceInsufficientAmount
+        );
 
         move_from_project_balance_to_reserve_balance(&mut contract_balances, &amount);
         update_contract_balances(&e, &contract_balances);
-        e.events().publish(
-            (TOPIC_CONTRACT_BALANCE_UPDATED, ),
-            contract_balances
-        );
+        e.events()
+            .publish((TOPIC_CONTRACT_BALANCE_UPDATED,), contract_balances);
 
         Ok(true)
     }

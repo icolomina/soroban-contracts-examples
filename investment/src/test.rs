@@ -136,7 +136,7 @@ fn test_check_contract_balance_fails() {
 
     e.ledger().set_timestamp(27 * 24 * 60 * 60);
     test_data.client.single_withdrawn(&140000_i128);
-    assert!(test_data.client.check_project_address_balance() > 0);
+    assert!(test_data.client.check_reserve_balance() > 0);
 }
 
 #[test]
@@ -160,7 +160,7 @@ fn test_check_contract_balance() {
     test_data.token_admin.mint(&test_data.admin, &100000_i128);
     test_data.client.add_company_transfer(&99000_i128);
 
-    assert_eq!(test_data.client.check_project_address_balance(), 0_i128);
+    assert_eq!(test_data.client.check_reserve_balance(), 0_i128);
 }
 
 #[test]
@@ -273,7 +273,7 @@ fn test_single_withdrawn_insufficient_balance() {
 }
 
 #[test]
-fn add_company_transfer() {
+fn test_add_company_transfer() {
     let e = Env::default();
     let test_data = create_investment_contract(&e, 500_u32, 7_u64, 1000000_i128, 1_u32, 4_u32, 100000_i128);
     do_mint_and_invest(&e, &test_data);
@@ -292,7 +292,7 @@ fn add_company_transfer() {
 }
 
 #[test]
-fn move_funds_to_reserve() {
+fn test_move_funds_to_reserve() {
     let e = Env::default();
     let test_data = create_investment_contract(&e, 500_u32, 7_u64, 1000000_i128, 1_u32, 4_u32, 100000_i128);
     do_mint_and_invest(&e, &test_data);

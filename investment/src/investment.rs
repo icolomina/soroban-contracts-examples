@@ -85,7 +85,7 @@ pub fn build_investment(env: &Env, cd: &ContractData, amount: &i128 ) -> Investm
 pub fn process_investment_payment(env: &Env, investment: &mut Investment, contract_data: &ContractData) -> i128 {
 
     let mut amount_to_transfer: i128;
-    if investment.status == InvestmentStatus::Blocked {
+    if investment.status != InvestmentStatus::CashFlowing {
         investment.status = InvestmentStatus::CashFlowing;
     }
 
