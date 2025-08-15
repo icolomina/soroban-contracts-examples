@@ -31,7 +31,7 @@ macro_rules! require {
     };
 }
 
-fn get_token(env: &Env) -> TokenClient {
+fn get_token(env: &Env) -> TokenClient<'_> {
     let contract_data = get_contract_data(&env);
     let tk = token::Client::new(&env, &contract_data.token);
     tk

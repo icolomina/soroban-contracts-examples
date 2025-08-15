@@ -2,15 +2,17 @@
 name = "investment"
 version = "0.2.0"
 edition = "2021"
+rust-version = "1.85.0"
 
 [lib]
 crate-type = ["cdylib"]
+doctest = false
 
 [dependencies]
-soroban-sdk = "22.0.1"
+soroban-sdk = "22.0.7"
 
 [dev_dependencies]
-soroban-sdk = { version = "22.0.1", features = ["testutils"] }
+soroban-sdk = { version = "22.0.7", features = ["testutils"] }
 
 [features]
 testutils = ["soroban-sdk/testutils"]

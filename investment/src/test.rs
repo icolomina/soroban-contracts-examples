@@ -40,7 +40,7 @@ fn create_investment_contract(
     return_type: u32,
     return_months: u32,
     min_per_investment: i128,
-) -> TestData {
+) -> TestData<'_> {
     e.mock_all_auths();
     let admin = Address::generate(&e);
     let user = Address::generate(&e);
