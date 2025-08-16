@@ -108,10 +108,10 @@ fn delegate_test_d_voter_has_voted() {
     client.delegate(&addr_admin, &symbol_short!("ippcxs"), &symbol_short!("hhcfrp"));
 }
 
-fn create_client(env: &Env) -> BallotClient{
+fn create_client(env: &Env) -> BallotClient<'_>{
     env.mock_all_auths();
 
-    let contract_id = env.register_contract(None, Ballot);
+    let contract_id = env.register(Ballot, ());
     let client = BallotClient::new(&env, &contract_id);
     client
 }

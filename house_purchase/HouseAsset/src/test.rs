@@ -100,9 +100,9 @@ fn transfer_from_non_approvals() {
     client.transfer_from(&not_allowed_addr, &new_owner);
 }
 
-fn create_client(env: &Env) -> AssetClient{
+fn create_client(env: &Env) -> AssetClient<'_> {
     env.mock_all_auths();
-    let contract_id = env.register_contract(None, Asset);
+    let contract_id = env.register(Asset, () );
     let client = AssetClient::new(&env, &contract_id);
 
     client

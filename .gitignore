@@ -1,11 +1,3 @@
-/ballot/Ballot/target/
-/ballot/Ballot/test_snapshots/
-/ballot/Ballot/Cargo.lock
-
-/ballot/BallotToken/target/
-/ballot/BallotToken/test_snapshots/
-/ballot/BallotToken/Cargo.lock
-
 /house_purchase/HouseAsset/target/
 /house_purchase/HouseAsset/test_snapshots/
 /house_purchase/HouseAsset/Cargo.lock
@@ -22,12 +14,12 @@
 /paid_account/test_snapshots/
 /paid_account/Cargo.lock
 
-/simple_deposit/target/
-/simple_deposit/test_snapshots/
-/simple_deposit/Cargo.lock
+/crypto_deposit/target/
+/crypto_deposit/test_snapshots/
+/crypto_deposit/Cargo.lock
 
-/ballot_without_token/target/
-/ballot_without_token/test_snapshots/
-/ballot_without_token/Cargo.lock
+/ballot/target/
+/ballot/test_snapshots/
+/ballot/Cargo.lock
 
 /.vscode/

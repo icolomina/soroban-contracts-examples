@@ -2,11 +2,8 @@
 
 Here you can find soroban contract examples. I try to improve and update these contracts continuously with new features and feedback provided by other developers.
 
-### Ballot without token
-This contract manages a ballot process following a custodial approach. Allowed-to-vote users are stored in the contract storage. When a user wants to vote, He does not need to sign a transactión with his wallet but the application would be in charge of storing the vote in the contract. 
-
 ### Ballot
-This contract also manages a ballot process but, in this case, the user must hold a token to be able to vote. The token is defined by the BallotToken contract (ballot/BallotToken). The user must sign the transaction with his wallet since authorization is required and, before storing the vote, the contract ensures the user address holds the token checking the balance. 
+This contract manages a ballot process following a custodial approach. Allowed-to-vote users are stored in the contract storage. When a user wants to vote, He does not need to sign a transactión with his wallet but the application would be in charge of storing the vote in the contract. 
 
 ### House Purchase
 This contract manages a house purchase between buyer and seller. It uses another contract which acts as an asset and represents the underlying asset, that is, the house. After the buyer send the payment to the current asset owner, it changes the ownership of the asset to the buyer.
@@ -47,15 +44,14 @@ in a real application without being audited first.
 You can read about these contracts in my dev.to blog:
 
 - **Ballot**: https://dev.to/icolomina/building-a-ballot-contract-using-soroban-plataform-and-rust-sdk-1hg1
-- **Ballot with token**: https://dev.to/icolomina/using-tokenization-to-control-a-soroban-voting-smart-contract-3lm6
 - **House Purchase**: New version comming soon
 
 > The House Purchase article link shows how to connect to the contract using PHP. It's also a good way to learn how the contract works
 
-- **Paid Account**: Comming soon
-- **Simple Deposit**: https://dev.to/icolomina/making-deposits-to-an-smart-contract-using-php-symfony-and-the-soroban-technology-4f10
+- **Investment**: Comming soon
+- **Cryto Deposit**: https://dev.to/icolomina/making-deposits-to-an-smart-contract-using-php-symfony-and-the-soroban-technology-4f10
 
-> The Simple Deposit article link shows an explanation about the contract and how to interact with it using a PHP / Symfony application.
+> The Crypto Deposit article link shows an explanation about the contract and how to interact with it using a PHP / Symfony application.
 
 ## Test the contracts
 
