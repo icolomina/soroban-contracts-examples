@@ -465,6 +465,7 @@ impl InvestmentContract {
         contract_data.admin.require_auth();
 
         let tk = get_token(&e);
+        require!(tk.balance(&contract_data.admin) >= amount, Error::AddressInsufficientBalance);
         tk.transfer(&contract_data.admin, &e.current_contract_address(), &amount);
 
         let mut contract_balances = get_balances_or_new(&e);
