@@ -27,7 +27,8 @@ pub struct ContractBalances {
     pub received_so_far: i128,
     pub payments: i128,
     pub reserve_contributions: i128,
-    pub project_withdrawals: i128
+    pub project_withdrawals: i128,
+    pub moved_from_project_to_reserve: i128
 }
 
 impl ContractBalances {
@@ -39,7 +40,8 @@ impl ContractBalances {
             received_so_far: 0_i128,
             payments: 0_i128,
             reserve_contributions: 0_i128,
-            project_withdrawals: 0_i128
+            project_withdrawals: 0_i128,
+            moved_from_project_to_reserve: 0_i128
         }
     }
 
@@ -108,5 +110,6 @@ pub fn decrement_project_balance_from_payment_to_investor(contract_balances: &mu
 pub fn move_from_project_balance_to_reserve_balance(contract_balances: &mut ContractBalances, amount: &i128) {
     contract_balances.project -= amount;
     contract_balances.reserve += amount;
+    contract_balances.moved_from_project_to_reserve += amount;
 }
 
