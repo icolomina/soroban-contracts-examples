@@ -1,72 +1,75 @@
-## Soroban contract examples
+# Soroban Contracts
 
-Here you can find soroban contract examples. I try to improve and update these contracts continuously with new features and feedback provided by other developers.
+This repository contains several smart contracts developed for the Soroban/Stellar platform. The following describes the functionality of each contract, how to build and test the contracts, and how to use `stellar-cli` to generate and deploy WASM code to Testnet.
+
+## Contract Descriptions
 
 ### Ballot
-This contract manages a ballot process following a custodial approach. Allowed-to-vote users are stored in the contract storage. When a user wants to vote, He does not need to sign a transactión with his wallet but the application would be in charge of storing the vote in the contract. 
 
-### House Purchase
-This contract manages a house purchase between buyer and seller. It uses another contract which acts as an asset and represents the underlying asset, that is, the house. After the buyer send the payment to the current asset owner, it changes the ownership of the asset to the buyer.
+Contract for managing voting processes. Allows storing users eligible to vote, registering votes and delegations, and controlling voting dates. Includes logic to verify if a user has voted, has delegated their vote, or has delegated votes. The application can interact with the contract to register votes and delegations without requiring direct user signature.
+
+### Crypto Deposit
+
+Contract for token deposits to the contract address. Allows initializing the contract with an administrator and a token, and performing user-authenticated deposits. The contract transfers deposited tokens to its own address and maintains an updated balance.
 
 ### Investment
-This Investment Contract provides a robust framework for managing investments on the Soroban platform. It includes features for investment management, return claims, and multisig withdrawals, ensuring secure and efficient handling of funds. This contract is designed to be installed for every single project so that each address manages a single project funds. This contract is adapted to the last changes introduced by protocol 22. Instead of using an "init" to configure the contract, it uses the new introduced "__constructor" function. This functión is executed when the contract is deployed (same as Solidity) so that, after deployed, the contract is ready to start working.
 
-Below you can find the parameters that the constructor must receive:
+Advanced contract for project investment management. Allows configuring parameters such as administrator, project address, token, interest rate, return type, return months, minimum per investment, etc. Includes functions for investing, claiming returns, multisig withdrawals, and balance and reserve control. Each contract manages the funds of a single project.
 
-- **admin_addr**: The contract administrator address. This address which administrates the contract
-- **project_address**: The project address. This is the address to which the funds raised will be sent.
-- **token_addr**: This is the address of the token that will be used to manage the project balance (for instance, USDC).
-- **i_rate**: The interest rate the project offers to te users.
-- **claim_block_days**: The number of days during which the investor must maintain his investment before claiming te gains.
-- **goal**: The fundraising goal for the project.
-- **return_type**: The way in which the investor will recover his investment (capital + interest)
-   - **Reverse Loan**: The amount is returned to the user as a monthly payment during an established munber of months
-   - **Coupon**: The interests are returned to the user as a monthly payment during an established number of months. After the last month, the user receives the capital too.
-   - **One time payment**: The user receives the payment within a unique payment.
-- **return_months**: The number of months established to return the payment.
-- **min_per_investment**: The minimum amount per investment.
+### HouseAsset
 
-After the contract is initialized, users can send their their transfers and become investors, This is done calling the "invest" function. For each transfer, the contract reserves a 5% as a reserve fund and a 2% as a comission.
-- The "claim" function is used to send the payments to the investors after the "claim_block_days" has passed. This function checks if its been a month since the last address payment and, if so, sends the payment and updates the last payment timestamp.
-- The "project_withdrawn" function allows the project address to withdran funds. It requires both the project address and the admin address sign.
-- The "check_project_address_balance" ensures that the contract has sufficient funds to cover payments for the next 7 days.
-- The "stop_investments" flags the contract so that no more investors transfers will be accepted.
-- The "get_contract_balance" function retunrs the current balance of the contract.
+Contract representing a real estate asset (e.g., a house). Allows initializing the asset with an owner and identifier, approving transfers, and managing asset ownership and metadata.
 
-### Simple deposit
-A contract to make a simple deposit to the contract address.
+### HousePurchase
 
------------------------------------------------------------------------------------
+Contract for managing property purchases between buyer and seller, using the `HouseAsset` contract as asset representation. Allows initializing the purchase, managing payments (first payment and remainder), and transferring asset ownership to the buyer once payments are completed.
 
-**IMPORTANT**: These contracts have a test suite but they have not been audited. They can serve as a base for learning but not for being used directly 
-in a real application without being audited first.
+---
 
-You can read about these contracts in my dev.to blog:
+## Build and Test Execution
 
-- **Ballot**: https://dev.to/icolomina/building-a-ballot-contract-using-soroban-plataform-and-rust-sdk-1hg1
-- **House Purchase**: New version comming soon
+To compile and test the contracts, make sure you have the Soroban environment configured following the [official documentation](https://developers.stellar.org/docs/build/smart-contracts/getting-started/setup).
 
-> The House Purchase article link shows how to connect to the contract using PHP. It's also a good way to learn how the contract works
+### Compile a contract
 
-- **Investment**: Comming soon
-- **Cryto Deposit**: https://dev.to/icolomina/making-deposits-to-an-smart-contract-using-php-symfony-and-the-soroban-technology-4f10
-
-> The Crypto Deposit article link shows an explanation about the contract and how to interact with it using a PHP / Symfony application.
-
-## Test the contracts
-
-To test the contracts, you must prepare first your environment. Follow the [soroban official documentation](https://developers.stellar.org/docs/build/smart-contracts/getting-started/setup) to achieve it.
-After having the environment ready, follow the next steps:
-
-### Build the contract
-
-```shell
+```bash
 cargo build
 ```
 
-### Test the contract
-```shell
+### Run tests
+
+```bash
 cargo test
 ```
 
-> The last commands must be executed inside the contract root folder. For instance: *soroban-contracts/paid_account*.
+> Execute these commands inside the root folder of each contract (e.g., `soroban-contracts/ballot`).
+
+---
+
+## Using Stellar-CLI to Generate and Deploy WASM
+
+### Generate WASM code
+
+From the contract root folder, execute:
+
+```bash
+cargo build --target wasm32-unknown-unknown --release
+```
+
+The `.wasm` file will be generated in `target/wasm32-unknown-unknown/release/`.
+
+### Deploy the contract to Testnet
+
+1. Install `stellar-cli` following the [official guide](https://github.com/stellar/stellar-cli).
+2. Authenticate your account and configure the Testnet network.
+3. Deploy the contract:
+
+```bash
+stellar contract deploy --wasm target/wasm32-unknown-unknown/release/<contract_name>.wasm --network testnet
+```
+
+4. Interact with the contract using `stellar-cli` commands to invoke functions, query state, etc.
+
+---
+
+**IMPORTANT:** These contracts have a test suite but have not been audited. They are useful for learning and prototyping, but should not be used in production without professional auditing.
