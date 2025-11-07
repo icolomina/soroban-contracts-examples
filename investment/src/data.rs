@@ -9,6 +9,7 @@ pub trait FromNumber {
 }
 
 pub const TOPIC_CONTRACT_BALANCE_UPDATED: Symbol = symbol_short!("CBUPDATED");
+pub const TOPIC_CONTRACT_STATUS_UPDATED: Symbol = symbol_short!("STUPDATED");
 
 
 #[contracttype]
@@ -31,28 +32,20 @@ pub struct ContractData {
 pub enum Error {
     AddressInsufficientBalance = 1,
     ContractInsufficientBalance = 2,
-    ContractNotInitialized = 3,
     AmountLessOrEqualThan0 = 4,
-    AmountLessOrThan0 = 5,
-    ContractAlreadyInitialized = 6,
-    RateMustBeGreaterThan0 = 7,
-    DepositTtlMustBeGreaterThan0 = 8,
-    AddressNotClaimableYet = 9,
-    AddressAlreadyDeposited = 10,
-    ContractFinancingReached = 11,
-    GoalMustBeGreaterThan0 = 12,
-    UnsupportedReturnType = 13,
     AddressHasNotInvested = 14,
     AddressInvestmentIsNotClaimableYet = 15,
     AddressInvestmentIsFinished = 16,
     AddressInvestmentNextTransferNotClaimableYet = 17,
-    AddressAlreadyInvested = 18,
-    ContractHasReachedInvestmentGoal = 19,
-    ProjectAddressInsufficientBalance = 20,
     WithdrawalUnexpectedSignature = 21,
     WithdrawalExpiredSignature = 22,
     WithdrawalInvalidAmount = 23,
-    ProjectBalanceInsufficientAmount = 24
+    ProjectBalanceInsufficientAmount = 24,
+    ContractMustBePausedToRestartAgain = 25,
+    ContractMustBeActiveToBePaused = 26,
+    ContractMustBeActiveToInvest = 27,
+    RecipientCannotReceivePayment = 28,
+    InvalidPaymentData = 29
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -60,11 +53,9 @@ pub enum Error {
 #[contracttype]
 pub enum State {
     Pending = 1,
-    Initialized = 2,
-    Deposited = 3,
-    NoDeposited = 4,
-    Withdrawn = 5,
-    FinancingReached = 6,
+    Actve = 2,
+    FundsReached = 3,
+    Paused = 4,
 }
 
 #[derive(Clone)]

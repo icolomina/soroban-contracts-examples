@@ -10,7 +10,7 @@ use crate::balance::{
 };
 use crate::claim::{calculate_next_claim, Claim};
 use crate::data::{
-    ContractData, DataKey, Error, FromNumber, State, TOPIC_CONTRACT_BALANCE_UPDATED,
+    ContractData, DataKey, Error, FromNumber, State, TOPIC_CONTRACT_BALANCE_UPDATED, TOPIC_CONTRACT_STATUS_UPDATED,
 };
 use crate::investment::{
     build_investment, process_investment_payment, Investment, InvestmentReturnType,
@@ -120,7 +120,7 @@ impl InvestmentContract {
                 token: token_addr,
                 project_address,
                 admin: admin_addr,
-                state: State::Initialized,
+                state: State::Actve,
                 return_type: ret_type,
                 return_months,
                 min_per_investment,
@@ -233,18 +233,12 @@ impl InvestmentContract {
         require!(amount > 0, Error::AmountLessOrEqualThan0);
 
         let mut contract_data: ContractData = get_contract_data(&env);
-        require!(
-            contract_data.state != State::FinancingReached,
-            Error::ContractFinancingReached
-        );
+        require!(contract_data.state == State::Actve, Error::ContractMustBeActiveToInvest);
 
         addr.require_auth();
         let tk = get_token(&env);
 
-        require!(
-            tk.balance(&addr) >= amount,
-            Error::AddressInsufficientBalance
-        );
+        require!(tk.balance(&addr) >= amount,Error::AddressInsufficientBalance);
 
         let amounts: Amount = Amount::from_investment(&amount, &contract_data.interest_rate);
         tk.transfer(&addr, &env.current_contract_address(), &amount);
@@ -257,12 +251,12 @@ impl InvestmentContract {
         update_investment(&env, addr.clone(), &addr_investment);
 
         if contract_balances.received_so_far >= contract_data.goal {
-            contract_data.state = State::FinancingReached;
+            contract_data.state = State::FundsReached;
             update_contract_data(&env, &contract_data);
+            env.events().publish((TOPIC_CONTRACT_STATUS_UPDATED,), contract_data.state);
         }
 
-        env.events()
-            .publish((TOPIC_CONTRACT_BALANCE_UPDATED,), contract_balances);
+        env.events().publish((TOPIC_CONTRACT_BALANCE_UPDATED,), contract_balances);
 
         Ok(addr_investment)
     }
@@ -301,8 +295,30 @@ impl InvestmentContract {
     /// * Returns `true` on success, or an error if something goes wrong.
     pub fn stop_investments(env: Env) -> Result<bool, Error> {
         let mut contract_data: ContractData = get_contract_data(&env);
+        require!(contract_data.state == State::Actve, Error::ContractMustBeActiveToBePaused);
         contract_data.admin.require_auth();
-        contract_data.state = State::FinancingReached;
+        contract_data.state = State::Paused;
+        update_contract_data(&env, &contract_data);
+
+        Ok(true)
+    }
+
+    /// Stops accepting new investments.
+    ///
+    /// Allows the admin to change the contract state to 'FinancingReached', which prevents new investments.
+    ///
+    /// # Parameters
+    ///
+    /// * `env` - The execution environment.
+    ///
+    /// # Returns
+    ///
+    /// * Returns `true` on success, or an error if something goes wrong.
+    pub fn restart_investments(env: Env) -> Result<bool, Error> {
+        let mut contract_data: ContractData = get_contract_data(&env);
+        require!(contract_data.state == State::Paused, Error::ContractMustBePausedToRestartAgain);
+        contract_data.admin.require_auth();
+        contract_data.state = State::Actve;
         update_contract_data(&env, &contract_data);
 
         Ok(true)
@@ -411,11 +427,16 @@ impl InvestmentContract {
         );
 
         let tk = get_token(&env);
-        tk.transfer(
+
+        // Verify the transfer can be completed
+        tk.try_transfer(
             &env.current_contract_address(),
             &contract_data.project_address,
             &amount,
-        );
+        )
+        .map_err(|_| Error::RecipientCannotReceivePayment)?
+        .map_err(|_| Error::InvalidPaymentData)?;
+        
         decrement_project_balance_from_company_withdrawal(&mut contract_balances, &amount);
         update_contract_balances(&env, &contract_balances);
         env.events()
