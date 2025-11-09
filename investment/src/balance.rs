@@ -71,9 +71,8 @@ impl CalculateAmounts for Amount {
     fn from_investment(amount: &i128, i_rate: &u32) -> Amount {
 
         let rate_denominator: u32 = calculate_rate_denominator(&amount);
-        let commision_rate = i_rate / rate_denominator;
 
-        let amount_to_commission = amount * (commision_rate as i128) / 100 / 100;
+        let amount_to_commission = amount * (*i_rate as i128) / (rate_denominator as i128) / 100 / 100;
         let amount_to_reserve_fund = amount * 5 / 100;
         let amount_to_invest = amount - amount_to_commission - amount_to_reserve_fund; 
 
