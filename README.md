@@ -2,6 +2,9 @@
 
 This repository contains several smart contracts developed for the Soroban/Stellar platform. The following describes the functionality of each contract, how to build and test the contracts, and how to use `stellar-cli` to generate and deploy WASM code to Testnet.
 
+## Important Notice 
+These contracts have a test suite but have not been audited. They are useful for learning and prototyping, but should not be used in production without professional auditing.
+
 ## Contract Descriptions
 
 ### Ballot
@@ -71,5 +74,3 @@ stellar contract deploy --wasm target/wasm32-unknown-unknown/release/<contract_n
 4. Interact with the contract using `stellar-cli` commands to invoke functions, query state, etc.
 
 ---
-
-**IMPORTANT:** These contracts have a test suite but have not been audited. They are useful for learning and prototyping, but should not be used in production without professional auditing.
