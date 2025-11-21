@@ -240,14 +240,15 @@ impl InvestmentContract {
 
         require!(tk.balance(&addr) >= amount,Error::AddressInsufficientBalance);
 
-        let amounts: Amount = Amount::from_investment(&amount, &contract_data.interest_rate);
+        let token_decimals = tk.decimals();
+        let amounts: Amount = Amount::from_investment(&amount, &contract_data.interest_rate, token_decimals);
         tk.transfer(&addr, &env.current_contract_address(), &amount);
 
         let mut contract_balances = get_balances_or_new(&env);
         recalculate_contract_balances_from_investment(&mut contract_balances, &amounts);
         update_contract_balances(&env, &contract_balances);
 
-        let addr_investment: Investment = build_investment(&env, &contract_data, &amount);
+        let addr_investment: Investment = build_investment(&env, &contract_data, &amount, token_decimals);
         update_investment(&env, addr.clone(), &addr_investment);
 
         if contract_balances.received_so_far >= contract_data.goal {

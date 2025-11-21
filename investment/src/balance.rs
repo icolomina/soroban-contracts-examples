@@ -5,13 +5,15 @@ pub(self) const LOWER_DIVISOR: u32 = 10;
 pub(self) const UPPER_DIVISOR: u32 = 60;
 pub(self) const AMOUNT_PER_COMMISSION_REDUCTION: i128 = 400;
 
-pub fn calculate_rate_denominator(amount: &i128) -> u32 {
-
-    if amount <= &LOWER_AMOUNT_FOR_COMMISSION_REDUCTION {
+pub fn calculate_rate_denominator(amount: &i128, decimals: u32) -> u32 {
+    let scale_factor = 10_i128.pow(decimals);
+    let token_amount = amount / scale_factor;
+    
+    if token_amount <= LOWER_AMOUNT_FOR_COMMISSION_REDUCTION {
         return LOWER_DIVISOR;
     }
 
-    let a = (amount - LOWER_AMOUNT_FOR_COMMISSION_REDUCTION) / AMOUNT_PER_COMMISSION_REDUCTION;
+    let a = (token_amount - LOWER_AMOUNT_FOR_COMMISSION_REDUCTION) / AMOUNT_PER_COMMISSION_REDUCTION;
     if a > UPPER_DIVISOR as i128 {
         return UPPER_DIVISOR;
     }
@@ -64,13 +66,13 @@ pub struct Amount {
 }
 
 pub trait CalculateAmounts {
-    fn from_investment(amount: &i128, i_rate: &u32) -> Amount;
+    fn from_investment(amount: &i128, i_rate: &u32, decimals: u32) -> Amount;
 }
 
 impl CalculateAmounts for Amount {
-    fn from_investment(amount: &i128, i_rate: &u32) -> Amount {
+    fn from_investment(amount: &i128, i_rate: &u32, decimals: u32) -> Amount {
 
-        let rate_denominator: u32 = calculate_rate_denominator(&amount);
+        let rate_denominator: u32 = calculate_rate_denominator(&amount, decimals);
 
         let amount_to_commission = amount * (*i_rate as i128) / (rate_denominator as i128) / 100 / 100;
         let amount_to_reserve_fund = amount * 5 / 100;

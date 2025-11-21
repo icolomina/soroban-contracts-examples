@@ -77,11 +77,12 @@ fn create_investment_contract(
 
 #[test]
 fn test_commision_calculator() {
-    assert_eq!(calculate_rate_denominator(&90_i128), 10_u32);
-    assert_eq!(calculate_rate_denominator(&120_i128), 10_u32);
-    assert_eq!(calculate_rate_denominator(&150_i128), 10_u32);
-    assert_eq!(calculate_rate_denominator(&500_i128), 11_u32);
-    assert_eq!(calculate_rate_denominator(&1900_i128), 14_u32);
+    // Probamos con valores escalados simulando 7 decimales
+    assert_eq!(calculate_rate_denominator(&(90_i128 * 10_000_000), 7), 10_u32);
+    assert_eq!(calculate_rate_denominator(&(120_i128 * 10_000_000), 7), 10_u32);
+    assert_eq!(calculate_rate_denominator(&(150_i128 * 10_000_000), 7), 10_u32);
+    assert_eq!(calculate_rate_denominator(&(500_i128 * 10_000_000), 7), 11_u32);
+    assert_eq!(calculate_rate_denominator(&(1900_i128 * 10_000_000), 7), 14_u32);
 }
 
 #[test]
