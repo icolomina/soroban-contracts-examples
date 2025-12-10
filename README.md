@@ -2,8 +2,8 @@
 
 This repository contains several smart contracts developed for the Soroban/Stellar platform. The following describes the functionality of each contract, how to build and test the contracts, and how to use `stellar-cli` to generate and deploy WASM code to Testnet.
 
-## Important Notice 
-These contracts have a test suite but have not been audited. They are useful for learning and prototyping, but should not be used in production without professional auditing.
+> [!WARNING]
+> These contracts are educational examples and have not been tested or audited. They are useful for learning and should not be used in production without professional auditing. Please refer to the license for more information.
 
 ## Contract Descriptions
 
