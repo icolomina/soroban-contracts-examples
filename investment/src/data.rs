@@ -32,27 +32,29 @@ pub struct ContractData {
 pub enum Error {
     AddressInsufficientBalance = 1,
     ContractInsufficientBalance = 2,
-    AmountLessOrEqualThan0 = 4,
+    AmountLessThanMinimum = 5,
+    InterestRateMustBeGreaterThanZero = 6,
+    GoalMustBeGreaterThanZero = 7,
+    UnsupportedReturnType = 8,
+    ReturnMonthsMustBeGreaterThanZero = 9,
+    MinPerInvestmentMustBeGreaterThanZero = 10,
     AddressHasNotInvested = 14,
     AddressInvestmentIsNotClaimableYet = 15,
     AddressInvestmentIsFinished = 16,
     AddressInvestmentNextTransferNotClaimableYet = 17,
-    WithdrawalUnexpectedSignature = 21,
-    WithdrawalExpiredSignature = 22,
-    WithdrawalInvalidAmount = 23,
     ProjectBalanceInsufficientAmount = 24,
     ContractMustBePausedToRestartAgain = 25,
     ContractMustBeActiveToBePaused = 26,
     ContractMustBeActiveToInvest = 27,
     RecipientCannotReceivePayment = 28,
-    InvalidPaymentData = 29
+    InvalidPaymentData = 29,
+    WouldExceedGoal = 30
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 #[contracttype]
 pub enum State {
-    Pending = 1,
     Actve = 2,
     FundsReached = 3,
     Paused = 4,
@@ -61,21 +63,9 @@ pub enum State {
 #[derive(Clone)]
 #[contracttype]
 pub enum DataKey {
-    InterestRate,
-    DepositStart(Address),
-    Token,
-    Admin,
-    State,
-    ClaimBlockDays,
-    ClaimTime(Address),
-    AddressStatus(Address),
     ContractData,
     Investment(Address),
-    BalanceReserveFund,
-    BalanceComission,
-    BalanceProject,
     ClaimsMap,
     MultisigRequest,
-    ContractBalances,
-    ContractFundsReceived
+    ContractBalances
 }

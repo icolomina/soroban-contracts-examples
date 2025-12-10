@@ -52,13 +52,6 @@ impl ContractBalances {
     }
 }
 
-#[contracttype]
-pub struct Balance {
-    pub deposited: i128,
-    pub accumulated_interests: i128,
-    pub total: i128,
-}
-
 pub struct Amount {
     pub amount_to_invest: i128,
     pub amount_to_reserve_fund: i128,

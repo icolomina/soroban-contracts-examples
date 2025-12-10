@@ -1,6 +1,6 @@
 
 use soroban_sdk::{contracttype, Env};
-use crate::{balance::{Amount, CalculateAmounts}, data::{ContractData, FromNumber}};
+use crate::{balance::{Amount, CalculateAmounts}, constants::SECONDS_IN_DAY, data::{ContractData, FromNumber}};
 
 #[contracttype]
 #[derive(Copy, Clone)]
@@ -23,7 +23,6 @@ pub struct Investment {
 pub enum InvestmentStatus {
     Blocked = 1,
     Claimable = 2,
-    WaitingForPayment = 3,
     CashFlowing = 4,
     Finished = 5,
 }
@@ -59,7 +58,7 @@ pub fn build_investment(env: &Env, cd: &ContractData, amount: &i128, decimals: u
     };
 
     let total = real_amount + current_interest;
-    let claimable_ts = env.ledger().timestamp() + (cd.claim_block_days * 86400_u64);
+    let claimable_ts = env.ledger().timestamp() + (cd.claim_block_days * SECONDS_IN_DAY);
 
     let regular_payment = match cd.return_type {
         InvestmentReturnType::Coupon => current_interest / cd.return_months as i128,
@@ -94,15 +93,15 @@ pub fn process_investment_payment(env: &Env, investment: &mut Investment, contra
     investment.payments_transferred += 1;
     amount_to_transfer = investment.regular_payment;
     
-    if contract_data.return_type == InvestmentReturnType::ReverseLoan && investment.payments_transferred >= contract_data.return_months {
-        investment.status = InvestmentStatus::Finished;
+    let is_last_payment = investment.payments_transferred >= contract_data.return_months;
 
-    }
-
-    if contract_data.return_type == InvestmentReturnType::Coupon && investment.payments_transferred >= contract_data.return_months {
+    if is_last_payment {
         investment.status = InvestmentStatus::Finished;
-        investment.paid += &investment.deposited;
-        amount_to_transfer += investment.deposited;
+    
+        if contract_data.return_type == InvestmentReturnType::Coupon {
+            investment.paid += investment.deposited;
+            amount_to_transfer += investment.deposited;
+        }
     }
 
     amount_to_transfer

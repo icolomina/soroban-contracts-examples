@@ -1,110 +1,89 @@
-use crate::{balance::ContractBalances, claim::Claim, data::{ContractData, DataKey}, investment::Investment, multisig::MultisigRequest};
-use soroban_sdk::{Address, Env, Map, String};
+use crate::{balance::ContractBalances, claim::Claim, data::{ContractData, DataKey}, investment::Investment};
+use soroban_sdk::{Address, Env, Map};
 
 pub(self) const DAY_IN_LEDGERS: u32 = 17280;
-pub(self) const INSTANCE_BUMP_AMOUNT: u32 = 7 * DAY_IN_LEDGERS;
-pub(self) const INSTANCE_LIFETIME_THRESHOLD: u32 = INSTANCE_BUMP_AMOUNT - DAY_IN_LEDGERS;
 
-pub(self) const PERSISTENT_BUMP_AMOUNT: u32 = 30 * DAY_IN_LEDGERS;
-pub(self) const PERSISTENT_LIFETIME_THRESHOLD: u32 = PERSISTENT_BUMP_AMOUNT - DAY_IN_LEDGERS;
+// Instance storage: accessed frequently, moderate TTL
+pub(self) const INSTANCE_BUMP_AMOUNT: u32 = 30 * DAY_IN_LEDGERS;      // ~30 days
+pub(self) const INSTANCE_LIFETIME_THRESHOLD: u32 = 15 * DAY_IN_LEDGERS; // ~15 days
+
+// Persistent storage: critical user data, long TTL for safety
+pub(self) const PERSISTENT_BUMP_AMOUNT: u32 = 180 * DAY_IN_LEDGERS;    // ~6 months
+pub(self) const PERSISTENT_LIFETIME_THRESHOLD: u32 = 90 * DAY_IN_LEDGERS; // ~3 months
 
 
 pub fn get_contract_data(e: &Env) -> ContractData {
-    if let Some(contract_data) = e.storage().instance().get(&DataKey::ContractData) {
-        e.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
-        return contract_data;
-    }
+    let contract_data = e.storage()
+        .instance()
+        .get(&DataKey::ContractData)
+        .unwrap_or_else(|| panic!("Contract data has expired"));
     
-    panic!("Contract not initialized");
+    bump_instance_ttl(e);
+    contract_data
 }
 
 pub fn update_contract_data(e: &Env, contract_data: &ContractData) {
     e.storage().instance().set(&DataKey::ContractData, contract_data);
-    e.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
 }
 
-pub fn get_investment(e: &Env, addr: Address, ts: u64) -> Option<Investment> {
-    let key = DataKey::Investment(addr);
-    let addr_investments = e.storage().persistent().get(&key).unwrap_or(Map::<u64, Investment>::new(&e));
+pub fn get_investment(e: &Env, addr: &Address, ts: u64) -> Option<Investment> {
+    let key = DataKey::Investment(addr.clone());
+    let addr_investments: Option<Map<u64, Investment>> = e.storage().persistent().get(&key);
     
-    if let Some(investment_data) = addr_investments.get(ts) {
-        e.storage().persistent().extend_ttl(&key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
-        return Some(investment_data);
+    if let Some(investments) = addr_investments {
+        bump_persistent_ttl(e, &key);
+        investments.get(ts)
+    } else {
+        None
     }
-
-    None
 }
 
-pub fn set_investment(e: &Env, addr: Address, investment: &Investment) {
-    let key = DataKey::Investment(addr);
+pub fn set_investment(e: &Env, addr: &Address, investment: &Investment) {
+    let key = DataKey::Investment(addr.clone());
 
     let mut addr_investments = e.storage().persistent().get(&key).unwrap_or(Map::<u64, Investment>::new(&e));
     addr_investments.set(investment.claimable_ts, *investment);
 
-
     e.storage().persistent().set(&key, &addr_investments);
-    e.storage().persistent().extend_ttl(&key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 }
 
 pub fn update_claims_map(e: &Env, claims_map: Map<Address, Claim>) {
-    let claims_map_key = DataKey::ClaimsMap;
-    e.storage().instance().set(&claims_map_key, &claims_map);
-    e.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
+    e.storage().instance().set(&DataKey::ClaimsMap, &claims_map);
 }
 
 pub fn get_claims_map_or_new(e: &Env) -> Map<Address, Claim> {
-    let claims_map = e.storage().instance().get(&DataKey::ClaimsMap);
-    match claims_map {
-        Some(x) => x,
-        None => Map::<Address, Claim>::new(&e)
-    }
+    let key = DataKey::ClaimsMap;
+    let claims_map = e.storage().instance()
+        .get(&key) 
+        .unwrap_or(Map::<Address, Claim>::new(&e))
+    ;
+
+    bump_instance_ttl(e);
+    claims_map        
 }
 
 pub fn update_contract_balances(e: &Env, contract_balances: &ContractBalances) {
     e.storage().instance().set(&DataKey::ContractBalances, contract_balances);
-    e.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
-}
-
-pub fn get_balances(e: &Env) -> Option<ContractBalances> {
-    if let Some(contract_balances) = e.storage().instance().get(&DataKey::ContractBalances) {
-        e.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
-        return Some(contract_balances);
-    }
-
-    None
 }
 
 pub fn get_balances_or_new(e: &Env) -> ContractBalances {
-    let contract_balances = get_balances(&e);
-    match contract_balances {
-        Some(x) => x,
-        None => ContractBalances::new()
-    }
+
+    let key = DataKey::ContractBalances;
+    let contract_balances = e.storage().instance()
+        .get(&key) 
+        .unwrap_or(ContractBalances::new())
+    ;
+
+    bump_instance_ttl(e);
+    contract_balances
 }
 
-pub fn get_multisig_or_new(e: &Env, contract_data: &ContractData, multisig_claim: String, successful_signatures: u32, amount: i128, valid_ts: u64) -> MultisigRequest {
-    let multisig_request = e.storage().temporary().get(&DataKey::MultisigRequest);
-    match multisig_request {
-        Some(x) => x,
-        None => {
-            let msig = MultisigRequest::new(
-                &e, 
-                &contract_data, 
-            multisig_claim, 
-                successful_signatures, 
-                amount,
-                valid_ts
-            );
-
-            set_multisig(e, &msig);
-            msig
-        }
-            
-    }
+fn bump_instance_ttl(e: &Env) {
+    e.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
 }
 
-pub fn set_multisig(e: &Env, multisig: &MultisigRequest) {
-    e.storage().temporary().set(&DataKey::MultisigRequest, multisig);
+fn bump_persistent_ttl(e: &Env, key: &DataKey) {
+    e.storage().persistent().extend_ttl(key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 }
 
 

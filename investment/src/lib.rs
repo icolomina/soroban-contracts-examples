@@ -1,10 +1,9 @@
 #![no_std]
 
+mod constants;
 mod data;
-mod contract;
-mod investment;
+pub mod contract;
+pub mod investment;
 mod storage;
 mod claim;
-mod multisig;
-mod balance;
-mod test;
+pub mod balance;
